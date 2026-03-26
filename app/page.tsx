@@ -465,6 +465,8 @@ export default function BuildInLive() {
   const { connect, setProject } = useStore();
 
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [selectedCube, setSelectedCube] = useState<any | null>(null);
+  
   const isDragging = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
 
@@ -489,6 +491,31 @@ export default function BuildInLive() {
     connect();
     setProject('home');
   }, []);
+
+  const generateProjectData = (cube: any) => {
+    const hash = Math.abs(Math.sin((cube.x + 1) * (cube.y + 1)) * 10000) || 1;
+    const keywordPool = ["AI", "SaaS", "FinTech", "Web3", "Marketplace", "DevTools", "API", "Data", "Social", "Gaming", "Platform", "Infrastructure", "No-code", "B2B"];
+    
+    const keywords: string[] = [];
+    let kHash = hash;
+    for (let i = 0; i < 3 + (Math.floor(kHash) % 3); i++) {
+      kHash = Math.abs(Math.sin(kHash) * 10000);
+      const kw = keywordPool[Math.floor(kHash) % keywordPool.length];
+      if (!keywords.includes(kw)) keywords.push(kw);
+    }
+
+    const id = cube.logo || cube.type || "center";
+    
+    return {
+      id: id,
+      name: id === "center" ? `SPATIAL_NODE_[${Math.abs(cube.q)},${Math.abs(cube.r)}]` : id.toUpperCase(),
+      keywords: keywords.slice(0, 5),
+      visitors: cube.visitors,
+      likes: Math.floor(hash % 500) + 12,
+      feedbacks: Math.floor((hash * 2) % 100),
+      errorsFixed: Math.floor((hash * 3) % 40)
+    };
+  };
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#0a0a0a] select-none" style={{ fontFamily: "Inter, sans-serif" }}>
@@ -592,18 +619,85 @@ export default function BuildInLive() {
               logo={cube.logo}
               visitors={cube.visitors}
               onClick={() => {
-                if (cube.logo) {
-                  router.push(`/project/${cube.logo}`);
-                } else if (cube.type) {
-                  router.push(`/project/${cube.type}`);
-                } else {
-                  router.push(`/project/center`);
+                if (!isDragging.current) {
+                  setSelectedCube(cube);
                 }
               }}
             />
           ))}
         </div>
       </main>
+
+      {/* Project Status Modal / Detail Overlay */}
+      {selectedCube && (() => {
+        const data = generateProjectData(selectedCube);
+        return (
+          <div 
+            className="fixed right-12 top-1/2 -translate-y-1/2 z-[100] w-[340px] bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/20 shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col animate-in fade-in slide-in-from-right-8 duration-300 pointer-events-auto"
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center px-5 py-3 border-b border-white/10 bg-white/5">
+              <div className="text-[10px] font-black tracking-[0.2em] text-white">
+                STATUS // {data.name}
+              </div>
+              <button 
+                className="text-white/50 hover:text-white transition-colors p-1 cursor-pointer"
+                onClick={() => setSelectedCube(null)}
+              >
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                  <path d="M1 1L13 13M1 13L13 1" stroke="currentColor" strokeWidth="1.5"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 flex flex-col gap-6">
+              {/* Keywords */}
+              <div>
+                <div className="text-[9px] text-white/40 tracking-[0.3em] uppercase mb-3">Core Focus / Keywords</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {data.keywords.map(kw => (
+                    <div key={kw} className="px-2 py-1 border border-white/20 text-[9px] text-white/90 uppercase tracking-[0.1em] bg-white/5 font-medium">
+                      {kw}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-2 gap-px bg-white/10 border border-white/10">
+                <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
+                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Live Builders</div>
+                  <div className="text-xl font-mono text-white flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                    {data.visitors}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
+                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Likes</div>
+                  <div className="text-xl font-mono text-white/90 px-1">{data.likes}</div>
+                </div>
+                <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
+                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Feedback</div>
+                  <div className="text-xl font-mono text-white/90 px-1">{data.feedbacks}</div>
+                </div>
+                <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
+                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Errors</div>
+                  <div className="text-xl font-mono text-white/90 px-1">{data.errorsFixed}</div>
+                </div>
+              </div>
+
+              {/* Call to Action */}
+              <button 
+                className="w-full py-4 mt-1 bg-white text-black font-black tracking-[0.3em] text-[10px] hover:bg-white/90 transition-colors uppercase border-none cursor-pointer"
+                onClick={() => router.push(`/project/${data.id}`)}
+              >
+                Enter Studio
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Bottom Navigation */}
       <BottomNav />
