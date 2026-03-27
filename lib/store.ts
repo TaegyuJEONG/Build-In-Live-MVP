@@ -58,27 +58,13 @@ export const useStore = create<AppState>((set, get) => ({
   connect: () => {
     if (get().socket) return;
     
-    // Recovery of identity from localStorage
-    const savedId = typeof window !== 'undefined' ? localStorage.getItem('bil_user_id') : null;
-    let savedName = typeof window !== 'undefined' ? localStorage.getItem('bil_user_name') : null;
-    
-    // Filter out legacy "Builder-" names to force refresh to human names
-    if (savedName && savedName.startsWith("Builder-")) {
-      savedName = null;
-    }
-
+    // Identity is now random on every refresh to allow testing different people
     const initialQuery: Record<string, string> = {};
-    if (savedId) initialQuery.savedId = savedId;
-    if (savedName) initialQuery.savedName = savedName;
 
     const socket = io({ query: initialQuery });
     
     socket.on('init', (data: { you: User, users: User[], markers: Marker[], comments: Record<string, Comment[]> }) => {
-      // Persistence of identity
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('bil_user_id', data.you.id);
-        localStorage.setItem('bil_user_name', data.you.name);
-      }
+      // Identity persistence disabled as per user request (change on every refresh)
       set({
         socket,
         currentUser: data.you,

@@ -56,9 +56,9 @@ export function FeedbackSystem({ projectId, iframeRef }: FeedbackProps) {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  // Auto-scroll to new marker in sidebar
+  // Auto-scroll to active marker in sidebar
   useEffect(() => {
-    if (activeMarkerId && isNewMarker) {
+    if (activeMarkerId) {
       setTimeout(() => {
         const element = document.getElementById(`marker-card-${activeMarkerId}`);
         if (element) {
@@ -66,7 +66,7 @@ export function FeedbackSystem({ projectId, iframeRef }: FeedbackProps) {
         }
       }, 100);
     }
-  }, [activeMarkerId, isNewMarker]);
+  }, [activeMarkerId]);
 
   // Click handler — only active during marker-adding mode
   const handleCanvasClick = (e: React.MouseEvent) => {

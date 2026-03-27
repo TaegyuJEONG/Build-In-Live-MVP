@@ -36,7 +36,9 @@ app.prepare().then(() => {
         "Sarah Chen", "Elena Rodriguez", "Alex Thompson", "Jun-ho Kim", 
         "Aisha Roberts", "Lucas Meyer", "Yuki Tanaka", "Sanjay Gupta",
         "Sofia Bianchi", "Marcus Webb", "Chloe Dubois", "Kenji Sato",
-        "Amara Okafor", "Liam O'Connor", "Zoe Fischer", "Mateo Silva"
+        "Amara Okafor", "Liam O'Connor", "Zoe Fischer", "Mateo Silva",
+        "Isabella White", "Dong-hyuk Park", "Olivia Smith", "Mohamed Ali",
+        "Grace Kim", "David Miller", "Emma Wilson", "Sunita Rao"
       ];
       return names[Math.floor(Math.random() * names.length)];
     };
