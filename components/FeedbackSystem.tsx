@@ -15,8 +15,12 @@ export function FeedbackSystem({ projectId }: { projectId: string }) {
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (!isAddingMode) return;
     
-    // Add marker at absolute cursor position
-    addMarker({ x: e.clientX, y: e.clientY, projectId });
+    // Add marker at relative position inside the scrollable canvas
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    addMarker({ x, y, projectId });
     setIsAddingMode(false);
   };
 
@@ -38,13 +42,13 @@ export function FeedbackSystem({ projectId }: { projectId: string }) {
       {/* Invisible Canvas for dropping markers */}
       {isAddingMode && (
         <div 
-          className="fixed inset-0 z-[9000] cursor-crosshair"
+          className="absolute inset-0 z-[9000] cursor-crosshair pointer-events-auto"
           onClick={handleCanvasClick}
         />
       )}
 
       {/* Render Markers */}
-      <div className="pointer-events-none fixed inset-0 z-[9001]">
+      <div className="pointer-events-none absolute inset-0 z-[9001]">
         {projectMarkers.map(marker => {
           const isActive = marker.id === activeMarkerId;
           const markerComments = comments[marker.id] || [];

@@ -24,9 +24,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const url = projectUrls[projectId] || "https://example.com";
 
   return (
-    <div className="w-screen h-screen bg-[#0a0a0a] overflow-hidden relative select-none" style={{ fontFamily: "Inter, sans-serif" }}>
-      {/* Header Overlay */}
-      <header className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-8 h-20 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+    <div className="w-screen h-screen bg-[#0a0a0a] flex flex-col overflow-hidden relative select-none" style={{ fontFamily: "Inter, sans-serif" }}>
+      {/* Header */}
+      <header className="flex-none w-full z-50 flex justify-between items-center px-8 h-16 bg-[#0a0a0a] border-b border-white/10">
         <div className="flex items-center gap-4">
           <div className="text-lg font-black tracking-tighter text-white uppercase drop-shadow-md">
             {projectId} <span className="text-white/30 font-light">WORKSPACE</span>
@@ -34,11 +34,11 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         </div>
         
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-[#131313]/80 border border-white/10 px-4 py-2 rounded-full pointer-events-auto backdrop-blur-md">
+          <div className="flex items-center gap-2 bg-[#131313]/80 border border-white/10 px-4 py-2 rounded-full cursor-default">
             <div className="w-2 h-2 rounded-full bg-[#F95A56] animate-pulse" />
             <span className="text-[10px] font-bold text-white tracking-widest uppercase">{activeUsers} VIEWING</span>
           </div>
-          <div className="bg-[#131313]/80 border border-[#F95A56]/30 px-4 py-2 rounded-full pointer-events-auto backdrop-blur-md text-[#F95A56] flex items-center gap-2">
+          <div className="bg-[#131313]/80 border border-[#F95A56]/30 px-4 py-2 rounded-full text-[#F95A56] flex items-center gap-2 cursor-default">
             <AlertCircle className="w-3 h-3" />
             <span className="text-[10px] font-bold tracking-widest uppercase">IFRAME SANDBOXED</span>
           </div>
@@ -46,10 +46,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       </header>
 
       {/* Main Iframe */}
-      <div className="w-full h-full pt-0">
+      <div className="flex-1 w-full relative">
         <iframe 
           src={url}
-          className="w-full h-full border-none pointer-events-auto"
+          className="absolute inset-0 w-full h-full border-none pointer-events-auto"
           title={`Project ${projectId}`}
           sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
         />

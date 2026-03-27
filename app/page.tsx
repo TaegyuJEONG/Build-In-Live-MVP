@@ -197,8 +197,8 @@ const generateHexGrid = (rings: number) => {
       const specialHash = Math.abs(Math.sin(c.q * 89.123 + c.r * 11.456)) * 10000;
       const specialRandom = specialHash % 100; // 0 to 99.99
       
-      if (specialRandom < 2) type = "!";
-      else if (specialRandom < 4) type = "?";
+      if (specialRandom < 6) type = "!";
+      else if (specialRandom < 12) type = "?";
     }
     
     // Pseudo-random noise [0..1) based on hex coordinates
@@ -331,10 +331,11 @@ interface CubeProps {
   type?: string
   logo?: string
   visitors?: number
+  isHidden?: boolean
   onClick?: () => void
 }
 
-function Cube({ x, y, ring, delay, type, logo, visitors = 0, onClick }: CubeProps) {
+function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, onClick }: CubeProps) {
   const isSpecial = type === "?" || type === "!"
   const isGold = type === "gold"
   const isWhite = type === "white"
@@ -353,6 +354,9 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, onClick }: CubeProp
         justifyContent: "center",
         transform: `translate(${x}px, ${y}px)`,
         zIndex: isSpecial ? 50 : 10,
+        opacity: isHidden ? 0.05 : 1,
+        pointerEvents: isHidden ? "none" : "auto",
+        transition: "opacity 0.5s ease-in-out",
         animation: `drift 12s infinite ease-in-out`,
         animationDelay: `${delay}s`,
         ["--tx" as string]: `${x}px`,
@@ -460,12 +464,17 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, onClick }: CubeProp
   )
 }
 
+const KEYWORD_POOL = ["AI", "SaaS", "FinTech", "Web3", "Marketplace", "DevTools", "API", "Data", "Social", "Gaming", "Platform", "Infrastructure", "No-code", "B2B"];
+
 export default function BuildInLive() {
   const router = useRouter();
   const { connect, setProject } = useStore();
 
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
   const [selectedCube, setSelectedCube] = useState<any | null>(null);
+  const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
+  const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
   
   const isDragging = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
@@ -487,6 +496,18 @@ export default function BuildInLive() {
     isDragging.current = false;
   };
 
+  const handleWheel = (e: React.WheelEvent) => {
+    const zoomFactor = -0.002 * e.deltaY;
+    setZoom((prev) => Math.min(Math.max(0.2, prev + zoomFactor), 4));
+  };
+
+  const getCoordinates = () => {
+    // Reverse coordinates signs so dragging right/down shows positive
+    const cx = Math.round(-pan.x);
+    const cy = Math.round(-pan.y);
+    return `${cx}.${cy}.${zoom.toFixed(2)}_INF`;
+  };
+
   useEffect(() => {
     connect();
     setProject('home');
@@ -494,13 +515,12 @@ export default function BuildInLive() {
 
   const generateProjectData = (cube: any) => {
     const hash = Math.abs(Math.sin((cube.x + 1) * (cube.y + 1)) * 10000) || 1;
-    const keywordPool = ["AI", "SaaS", "FinTech", "Web3", "Marketplace", "DevTools", "API", "Data", "Social", "Gaming", "Platform", "Infrastructure", "No-code", "B2B"];
     
     const keywords: string[] = [];
     let kHash = hash;
     for (let i = 0; i < 3 + (Math.floor(kHash) % 3); i++) {
       kHash = Math.abs(Math.sin(kHash) * 10000);
-      const kw = keywordPool[Math.floor(kHash) % keywordPool.length];
+      const kw = KEYWORD_POOL[Math.floor(kHash) % KEYWORD_POOL.length];
       if (!keywords.includes(kw)) keywords.push(kw);
     }
 
@@ -553,23 +573,57 @@ export default function BuildInLive() {
       <aside className="fixed left-8 top-1/2 -translate-y-1/2 flex flex-col gap-0 z-50 p-0 bg-transparent">
         <div className="px-2 py-4 mb-4 border-l border-white/20">
           <div className="text-[8px] tracking-[0.3em] uppercase text-white/30 mb-1">COORDINATES</div>
-          <div className="text-[10px] tracking-widest uppercase text-white">0.0.0_INF</div>
+          <div className="text-[10px] tracking-widest uppercase text-white">{getCoordinates()}</div>
         </div>
-        <button className="flex flex-col items-center justify-center w-12 h-12 hover:bg-white/5 text-white/30 transition-colors">
+        <button 
+          className="flex flex-col items-center justify-center w-12 h-12 hover:bg-white/5 text-white/30 transition-colors cursor-pointer"
+          onClick={() => setZoom(z => Math.min(z + 0.2, 4))}
+        >
           <Plus className="w-4 h-4" />
         </button>
-        <button className="flex flex-col items-center justify-center w-12 h-12 hover:bg-white/5 text-white/30 transition-colors">
+        <button 
+          className="flex flex-col items-center justify-center w-12 h-12 hover:bg-white/5 text-white/30 transition-colors cursor-pointer"
+          onClick={() => setZoom(z => Math.max(z - 0.2, 0.2))}
+        >
           <Minus className="w-4 h-4" />
         </button>
         <button 
           className="flex flex-col items-center justify-center w-12 h-12 bg-white text-black hover:bg-white/80 transition-colors cursor-pointer"
-          onClick={() => setPan({ x: 0, y: 0 })}
+          onClick={() => { setPan({ x: 0, y: 0 }); setZoom(1); }}
         >
           <Focus className="w-4 h-4" />
         </button>
-        <button className="flex flex-col items-center justify-center w-12 h-12 hover:bg-white/5 text-white/30 transition-colors">
-          <Layers className="w-4 h-4" />
-        </button>
+        <div className="relative">
+          <button 
+            className={`flex flex-col items-center justify-center w-12 h-12 transition-colors cursor-pointer ${isLayerMenuOpen || selectedKeyword ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-white/30'}`}
+            onClick={() => setIsLayerMenuOpen(!isLayerMenuOpen)}
+          >
+            <Layers className="w-4 h-4" />
+          </button>
+          
+          {isLayerMenuOpen && (
+            <div className="fixed left-24 top-1/2 -translate-y-1/2 w-48 h-[380px] bg-[#0a0a0a]/90 backdrop-blur-md border border-white/20 shadow-2xl z-50 overflow-hidden flex flex-col">
+              <div className="text-[10px] uppercase text-white/50 tracking-widest p-3 border-b border-white/10 bg-white/5">Filter by Keyword</div>
+              <div className="flex flex-col flex-1 overflow-y-auto w-full [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent">
+                <button 
+                  onClick={() => { setSelectedKeyword(null); setIsLayerMenuOpen(false); }} 
+                  className={`text-left text-[10px] p-3 uppercase tracking-wider transition-colors border-l-2 ${!selectedKeyword ? 'bg-white/10 text-white border-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5 border-transparent'}`}
+                >
+                  All Categories
+                </button>
+                {KEYWORD_POOL.map(kw => (
+                  <button 
+                    key={kw} 
+                    onClick={() => { setSelectedKeyword(kw); setIsLayerMenuOpen(false); }} 
+                    className={`text-left text-[10px] p-3 uppercase tracking-wider transition-colors border-l-2 ${selectedKeyword === kw ? 'bg-white/10 text-white border-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5 border-transparent'}`}
+                  >
+                    {kw}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </aside>
 
       {/* Main Spatial Canvas */}
@@ -584,6 +638,7 @@ export default function BuildInLive() {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        onWheel={handleWheel}
       >
         <div 
           className="relative flex items-center justify-center leading-none"
@@ -591,7 +646,7 @@ export default function BuildInLive() {
             width: 1200, 
             height: 1200, 
             transformStyle: "preserve-3d",
-            transform: `translate(${pan.x}px, ${pan.y}px)`
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`
           }}
         >
           {/* Extremely thin Isometric Background Floor Grid */}
@@ -608,23 +663,29 @@ export default function BuildInLive() {
             </svg>
           </div>
 
-          {cubePositions.map((cube, i) => (
-            <Cube
-              key={i}
-              x={cube.x}
-              y={cube.y}
-              ring={cube.ring}
-              delay={cube.delay}
-              type={cube.type}
-              logo={cube.logo}
-              visitors={cube.visitors}
-              onClick={() => {
-                if (!isDragging.current) {
-                  setSelectedCube(cube);
-                }
-              }}
-            />
-          ))}
+          {cubePositions.map((cube, i) => {
+            const data = generateProjectData(cube);
+            const isHidden = selectedKeyword ? !data.keywords.includes(selectedKeyword) : false;
+            
+            return (
+              <Cube
+                key={i}
+                x={cube.x}
+                y={cube.y}
+                ring={cube.ring}
+                delay={cube.delay}
+                type={cube.type}
+                logo={cube.logo}
+                visitors={cube.visitors}
+                isHidden={isHidden}
+                onClick={() => {
+                  if (!isDragging.current) {
+                    setSelectedCube(cube);
+                  }
+                }}
+              />
+            );
+          })}
         </div>
       </main>
 
@@ -712,15 +773,15 @@ export default function BuildInLive() {
         <div className="space-y-6">
           <div className="flex justify-between items-end">
             <span className="text-[8px] text-white/30 uppercase tracking-widest">Builders</span>
-            <span className="text-[10px] text-[#F95A56] font-mono font-bold">14ms</span>
+            <span className="text-[10px] text-[#F95A56] font-mono font-bold">2,184</span>
           </div>
           <div className="flex justify-between items-end">
             <span className="text-[8px] text-white/30 uppercase tracking-widest">Studios</span>
-            <span className="text-[10px] text-white/60 font-mono">30_ACT</span>
+            <span className="text-[10px] text-white/60 font-mono">142</span>
           </div>
           <div className="flex justify-between items-end">
             <span className="text-[8px] text-white/30 uppercase tracking-widest">Events</span>
-            <span className="text-[10px] text-white/60 font-mono">42.8%</span>
+            <span className="text-[10px] text-white/60 font-mono">8,902</span>
           </div>
         </div>
       </div>
