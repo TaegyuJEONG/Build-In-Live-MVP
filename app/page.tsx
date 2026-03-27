@@ -229,6 +229,7 @@ const generateHexGrid = (rings: number) => {
     const logo = type ? undefined : logos[logoIdx];
 
     return {
+      id: (type === "?" && c.q === -1 && c.r === 0) ? "portfolio" : undefined,
       x,
       y,
       ring: c.ring,
@@ -524,7 +525,7 @@ export default function BuildInLive() {
       if (!keywords.includes(kw)) keywords.push(kw);
     }
 
-    const id = cube.logo || cube.type || "center";
+    const id = cube.id || cube.logo || cube.type || "center";
     
     return {
       id: id,
