@@ -192,6 +192,8 @@ const generateHexGrid = (rings: number) => {
       type = "!";
     } else if (c.q === -1 && c.r === 0) {
       type = "?";
+    } else if (c.q === 1 && c.r === 1) {
+      type = "fireworks";
     } else {
       // Spread additional ? and ! randomly across the board (approx 4% chance)
       const specialHash = Math.abs(Math.sin(c.q * 89.123 + c.r * 11.456)) * 10000;
@@ -199,6 +201,7 @@ const generateHexGrid = (rings: number) => {
       
       if (specialRandom < 6) type = "!";
       else if (specialRandom < 12) type = "?";
+      else if (specialRandom < 15) type = "fireworks";
     }
     
     // Pseudo-random noise [0..1) based on hex coordinates
@@ -210,6 +213,13 @@ const generateHexGrid = (rings: number) => {
     // activityScore combines distance from center (40%) and randomness (60%)
     const activityScore = (centerWeight * 0.4) + (noise * 0.6);
 
+    // Automate commit trace globally across the entire grid (approx 25% of cubes)
+    // Use coordinate-based hashing for a deterministic random look (exclude central gold cube)
+    const commitHash = Math.abs(Math.sin(c.q * 71.321 + c.r * 19.456)) * 10000;
+    const isAutoCommitting = (c.q === 0 && c.r === 0) ? false : (commitHash % 100) < 25; 
+    const isRed = (commitHash % 100) < 10; // 10% chance for a red commit (40% of all commits)
+    const isHeartActive = (c.q === 0 && c.r === 0) ? false : (commitHash % 100) > 85; // ~15% chance for heart
+
     let visitors = 0;
     if (activityScore > 0.85) visitors = 100;
     else if (activityScore > 0.70) visitors = 80;
@@ -220,7 +230,7 @@ const generateHexGrid = (rings: number) => {
 
     // Preserve special marker high counts
     if (type === "gold") visitors = 150;
-    if (type === "?" || type === "!") visitors = 95;
+    if (type === "?" || type === "!" || type === "fireworks") visitors = 95;
 
     // Coordinate-based pseudo-random hash for logo assignment
     // Gives a completely random look without using Math.random() directly
@@ -236,7 +246,10 @@ const generateHexGrid = (rings: number) => {
       delay: c.ring * 0.5 + (i % 10) * 0.2,
       type,
       visitors,
-      logo
+      logo,
+      isAutoCommitting,
+      isRed,
+      isHeartActive
     };
   });
 
@@ -324,6 +337,84 @@ function Symbol3D({ symbol }: { symbol: string }) {
   )
 }
 
+// 3D Fireworks Component - Bursting particles effect
+function Fireworks3D() {
+  const particles = Array.from({ length: 12 });
+  return (
+    <div
+      style={{
+        position: "absolute",
+        width: 50,
+        height: 50,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transform: "translateZ(60px) rotateX(-90deg)",
+        transformStyle: "preserve-3d",
+        zIndex: 100,
+        pointerEvents: "none",
+      }}
+    >
+      {/* Central Core Glow */}
+      <div
+        style={{
+          position: "absolute",
+          width: 80,
+          height: 80,
+          background: "radial-gradient(circle, rgba(255,230,0,0.8) 0%, rgba(255,100,0,0.4) 40%, transparent 70%)",
+          filter: "blur(10px)",
+          borderRadius: "50%",
+        }}
+      />
+      
+      {/* Dynamic Spark Particles */}
+      {particles.map((_, i) => (
+        <div
+          key={i}
+          className="firework-spark"
+          style={{
+            position: "absolute",
+            width: 4,
+            height: 12,
+            background: `linear-gradient(to top, transparent, ${["#FFD700", "#FF4500", "#00FF7F", "#00BFFF"][i % 4]})`,
+            borderRadius: "2px",
+            ["--angle" as string]: `${(i * 360) / 12}deg`,
+            ["--delay" as string]: `${(i * 0.1)}s`,
+            ["--color" as string]: ["#FFD700", "#FF4500", "#00FF7F", "#00BFFF"][i % 4],
+          }}
+        />
+      ))}
+
+      <style jsx>{`
+        .firework-spark {
+          transform-origin: center bottom;
+          animation: spark-burst 1.5s infinite ease-out;
+          animation-delay: var(--delay);
+          opacity: 0;
+        }
+
+        @keyframes spark-burst {
+          0% {
+            transform: rotate(var(--angle)) translateY(0) scaleY(0.5);
+            opacity: 1;
+            filter: brightness(2);
+          }
+          50% {
+            opacity: 1;
+            filter: brightness(1.5);
+          }
+          100% {
+            transform: rotate(var(--angle)) translateY(-40px) scaleY(1.5);
+            opacity: 0;
+            filter: brightness(1);
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+
 interface CubeProps {
   x: number
   y: number
@@ -334,10 +425,16 @@ interface CubeProps {
   visitors?: number
   isHidden?: boolean
   onClick?: () => void
+  isCommitting?: boolean
+  commitDelay?: number
+  commitColor?: string
+  isHeartActive?: boolean
+  heartDelay?: number
 }
 
-function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, onClick }: CubeProps) {
-  const isSpecial = type === "?" || type === "!"
+function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, onClick, isCommitting = false, commitDelay = 0, commitColor = "white", isHeartActive = false, heartDelay = 0 }: CubeProps) {
+  const isSpecial = type === "?" || type === "!" || type === "fireworks"
+  const isFireworks = type === "fireworks"
   const isGold = type === "gold"
   const isWhite = type === "white"
   const cubeSize = 50
@@ -380,6 +477,8 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, o
               height: 140,
               background: isGold 
                 ? "radial-gradient(circle, rgba(255,193,7,0.5) 0%, transparent 70%)"
+                : isFireworks
+                ? "radial-gradient(circle, rgba(255,255,100,0.5) 0%, transparent 70%)"
                 : "radial-gradient(circle, rgba(249,90,86,0.4) 0%, transparent 70%)",
               filter: "blur(25px)",
               zIndex: -1,
@@ -387,18 +486,19 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, o
           />
         )}
               
-        <div
-          style={{
-            position: "relative",
-            width: cubeSize,
-            height: cubeSize,
-            transformStyle: "preserve-3d",
-            transform: "rotateX(60deg) rotateZ(-45deg)",
-          }}
-        >
-          {/* 3D Symbol floating above cube completely integrated into the 3D space */}
-          {isSpecial && <Symbol3D symbol={type!} />}
-          {/* Top Face */}
+
+          <div
+            style={{
+              position: "relative",
+              width: cubeSize,
+              height: cubeSize,
+              transformStyle: "preserve-3d",
+              transform: "rotateX(60deg) rotateZ(-45deg)",
+            }}
+          >
+            {/* 3D Symbol floating above cube completely integrated into the 3D space */}
+            {isSpecial && !isFireworks && <Symbol3D symbol={type!} />}
+            {isFireworks && <Fireworks3D />}
           <div
             className="hover:bg-white/90 transition-colors"
             style={{
@@ -460,12 +560,131 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, o
             }}
           />
         </div>
+
+        {/* Commit Light Animation - Hexagonal Silhouette Layer */}
+        <CommitTrace isCommitting={isCommitting} delay={commitDelay} duration={12} color={commitColor} />
+        
+        {/* Heart Float Animation */}
+        <HeartFloat isHeartActive={isHeartActive} delay={heartDelay} duration={10} />
       </div>
     </div>
   )
 }
 
 const KEYWORD_POOL = ["AI", "SaaS", "FinTech", "Web3", "Marketplace", "DevTools", "API", "Data", "Social", "Gaming", "Platform", "Infrastructure", "No-code", "B2B"];
+
+// Commit Animation Helper - Hexagonal SVG outline for the entire cube silhouette
+function CommitTrace({ isCommitting, delay = 0, duration = 8, color = "white" }: { isCommitting: boolean; delay?: number; duration?: number; color?: string }) {
+  if (!isCommitting) return null;
+  
+  const glowColor = color === "white" ? "rgba(255,255,255,0.8)" : "rgba(249,90,86,0.8)";
+  const strokeColor = color === "white" ? "white" : "#F95A56";
+  
+  // Adjusted hexagonal silhouette for 50x50px cube based on visual feedback:
+  // Width: 70.71, Silhouette Height: ~78.68 (Top-Y 35.36 + Side-Y 43.32)
+  return (
+    <div 
+      className="absolute pointer-events-none" 
+      style={{ 
+        width: 70.71, 
+        height: 78.68, 
+        zIndex: 100,
+        left: "50%",
+        top: "50%",
+        // Adjusted Nudge based on screenshot: Moved up to perfectly wrap the cube face
+        transform: "translate(-50%, -50%) translateY(-2px)",
+      }}
+    >
+      <svg
+        width="70.71"
+        height="78.68"
+        viewBox="0 0 70.71 78.68"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ filter: `drop-shadow(0 0 5px ${glowColor})` }}
+      >
+        <path
+          d="M35.35 0 L70.71 17.68 L70.71 60.98 L35.35 78.68 L0 60.98 L0 17.68 Z"
+          stroke={strokeColor}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="animate-commit-svg"
+          style={{ 
+            ["--anim-delay" as string]: `${delay}s`,
+            ["--anim-duration" as string]: `${duration}s`
+          }}
+        />
+      </svg>
+      
+      <style jsx>{`
+        .animate-commit-svg {
+          stroke-dasharray: 60 340;
+          stroke-dashoffset: 400;
+          /* Slower, more sporadic cycle: 12 seconds where most of it is empty */
+          animation: trace-svg var(--anim-duration) infinite linear;
+          animation-delay: var(--anim-delay);
+          opacity: 0;
+        }
+
+        @keyframes trace-svg {
+          0% { stroke-dashoffset: 400; opacity: 0; }
+          2% { opacity: 0.8; }
+          20% { stroke-dashoffset: 0; opacity: 0.8; }
+          22% { opacity: 0; }
+          100% { stroke-dashoffset: 0; opacity: 0; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// Heart Animation Helper - Floating heart effect for bookmark events
+function HeartFloat({ isHeartActive, delay = 0, duration = 10 }: { isHeartActive: boolean; delay?: number; duration?: number }) {
+  if (!isHeartActive) return null;
+  
+  return (
+    <div 
+      className="absolute pointer-events-none" 
+      style={{ 
+        width: 30, 
+        height: 30, 
+        zIndex: 110,
+        left: "70%",
+        top: "10%",
+        transform: "translateZ(30px)",
+      }}
+    >
+      <div 
+        className="animate-heart-float"
+        style={{ 
+          ["--heart-delay" as string]: `${delay}s`,
+          ["--heart-duration" as string]: `${duration}s`
+        }}
+      >
+        <svg viewBox="0 0 24 24" fill="#F95A56" className="w-4 h-4 shadow-[0_0_10px_rgba(249,90,86,0.6)]">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+      </div>
+      
+      <style jsx>{`
+        .animate-heart-float {
+          animation: float-rise var(--heart-duration) infinite ease-out;
+          animation-delay: var(--heart-delay);
+          opacity: 0;
+          transform-origin: center;
+        }
+
+        @keyframes float-rise {
+          0% { transform: translateY(0) scale(0); opacity: 0; }
+          2% { transform: translateY(-10px) scale(1); opacity: 1; }
+          15% { transform: translateY(-40px) scale(1.2); opacity: 0; }
+          100% { transform: translateY(-40px) scale(1.2); opacity: 0; }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 export default function BuildInLive() {
   const router = useRouter();
@@ -476,6 +695,7 @@ export default function BuildInLive() {
   const [selectedCube, setSelectedCube] = useState<any | null>(null);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
+  const [committingCubeId, setCommittingCubeId] = useState<string | null>(null);
   
   const isDragging = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
@@ -679,6 +899,11 @@ export default function BuildInLive() {
                 logo={cube.logo}
                 visitors={cube.visitors}
                 isHidden={isHidden}
+                isCommitting={cube.isAutoCommitting || committingCubeId === (cube.id || cube.logo || cube.type || `node-${cube.x}-${cube.y}`)}
+                commitDelay={Number((Math.abs(Math.sin((cube.x + 10) * (cube.y + 20))) * 10).toFixed(2))}
+                commitColor={cube.isRed ? "red" : "white"}
+                isHeartActive={cube.isHeartActive}
+                heartDelay={Math.abs(Math.sin((cube.x + 50) * (cube.y + 30))) * 15}
                 onClick={() => {
                   if (!isDragging.current) {
                     setSelectedCube(cube);
