@@ -238,19 +238,25 @@ const generateHexGrid = (rings: number) => {
     const logoIdx = Math.floor(logoHash) % logos.length;
     const logo = type ? undefined : logos[logoIdx];
 
+    const commitDelay = Number((Math.abs(Math.sin((x + 10) * (y + 20))) * 10).toFixed(2));
+    const heartDelay = Number((Math.abs(Math.sin((x + 50) * (y + 30))) * 15).toFixed(2));
+
     return {
       id: (type === "?" && c.q === -1 && c.r === 0) ? "portfolio" : undefined,
       x,
       y,
       ring: c.ring,
-      delay: c.ring * 0.5 + (i % 10) * 0.2,
+      delay: Number((c.ring * 0.5 + (i % 10) * 0.2).toFixed(2)),
       type,
       visitors,
       logo,
       isAutoCommitting,
       isRed,
-      isHeartActive
+      isHeartActive,
+      commitDelay,
+      heartDelay
     };
+
   });
 
   return generatedCubes;
@@ -462,12 +468,17 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, o
         ["--scale" as string]: 1,
       }}
     >
-      {/* Interactive Hover Wrapper */}
+      {/* Interactive Hover Wrapper - Bumps up when committing */}
       <div 
-        className="absolute w-full h-full flex items-center justify-center cursor-pointer transition-all duration-300 ease-out hover:-translate-y-2 hover:scale-[1.05] hover:z-50"
-        style={{ transformStyle: "preserve-3d" }}
+        className={`absolute w-full h-full flex items-center justify-center cursor-pointer transition-all duration-300 ease-out hover:-translate-y-2 hover:scale-[1.05] hover:z-50 ${isCommitting ? 'animate-commit-bump' : ''}`}
+        style={{ 
+          transformStyle: "preserve-3d",
+          ["--cb-delay" as string]: `${commitDelay}s`,
+          ["--cb-duration" as string]: `12s` // Same as CommitTrace duration
+        }}
         onClick={onClick}
       >
+
         {/* Glow effect for special and gold cubes */}
         {(isSpecial || isGold) && (
           <div
@@ -770,7 +781,22 @@ export default function BuildInLive() {
             transform: translate(var(--tx), var(--ty)) scale(var(--scale)) translateY(-8px); 
           }
         }
+
+        .animate-commit-bump {
+          animation: commit-bump var(--cb-duration) infinite ease-out;
+          animation-delay: var(--cb-delay);
+        }
+
+        @keyframes commit-bump {
+          0% { transform: translateY(0px); }
+          5% { transform: translateY(-15px); }  /* Fast snap up */
+          15% { transform: translateY(-12px); } /* Slight hang time */
+          22% { transform: translateY(0px); }   /* Smooth return exactly when light fades */
+          100% { transform: translateY(0px); }
+        }
+
       `}</style>
+
 
       {/* Header */}
       <header className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-8 h-20 bg-transparent">
@@ -900,10 +926,10 @@ export default function BuildInLive() {
                 visitors={cube.visitors}
                 isHidden={isHidden}
                 isCommitting={cube.isAutoCommitting || committingCubeId === (cube.id || cube.logo || cube.type || `node-${cube.x}-${cube.y}`)}
-                commitDelay={Number((Math.abs(Math.sin((cube.x + 10) * (cube.y + 20))) * 10).toFixed(2))}
+                commitDelay={cube.commitDelay}
                 commitColor={cube.isRed ? "red" : "white"}
                 isHeartActive={cube.isHeartActive}
-                heartDelay={Math.abs(Math.sin((cube.x + 50) * (cube.y + 30))) * 15}
+                heartDelay={cube.heartDelay}
                 onClick={() => {
                   if (!isDragging.current) {
                     setSelectedCube(cube);
@@ -979,8 +1005,9 @@ export default function BuildInLive() {
                 className="w-full py-4 mt-1 bg-white text-black font-black tracking-[0.3em] text-[10px] hover:bg-white/90 transition-colors uppercase border-none cursor-pointer"
                 onClick={() => router.push(`/project/${data.id}`)}
               >
-                Enter Studio
+                Enter Desk
               </button>
+
             </div>
           </div>
         );
