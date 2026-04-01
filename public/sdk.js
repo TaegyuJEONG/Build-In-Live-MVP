@@ -3,9 +3,15 @@
 (function() {
   console.log('[BUILD IN LIVE SDK] Booting up...');
   
+  // Get project config from script tag
+  const scriptTag = document.currentScript;
+  const projectId = scriptTag ? scriptTag.getAttribute('data-project-id') : null;
+  console.log(`[BUILD IN LIVE SDK] Project ID: ${projectId}`);
+  
   // Only run if loaded inside an iframe (like the Build_In_Live workspace)
   if (window === window.parent) {
-    console.log('[BUILD IN LIVE SDK] Not in an iframe, aborting sync.');
+    console.log('[BUILD IN LIVE SDK] Not in an iframe.');
+    // Optional: Add a "Give Feedback" floating button here in the future
     return;
   }
   

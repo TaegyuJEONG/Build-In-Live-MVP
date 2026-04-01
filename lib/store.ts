@@ -1,5 +1,21 @@
 import { create } from 'zustand';
-import { io, Socket } from 'socket.io-client';
+import { auth, db, rtdb } from './firebase';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { 
+  collection, 
+  query, 
+  onSnapshot, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc,
+  deleteDoc,
+  addDoc,
+  orderBy,
+  serverTimestamp,
+  increment
+} from 'firebase/firestore';
+import { ref, onValue, set as setRTDB, onDisconnect, remove } from 'firebase/database';
 
 export type User = {
   id: string;
@@ -20,6 +36,7 @@ export type Marker = {
   authorColor: string;
   scrollY: number;
   pathname: string;
+  createdAt?: any;
 };
 
 export type Comment = {
@@ -30,161 +47,194 @@ export type Comment = {
   timestamp: string;
 };
 
+export type Project = {
+  id: string;
+  ownerId: string;
+  name: string;
+  url: string;
+  logoUrl?: string;
+  description?: string;
+  guide?: string;
+  createdAt: any;
+  feedbackCount: number;
+};
+
 interface AppState {
-  socket: Socket | null;
   currentUser: User | null;
+  firebaseUser: FirebaseUser | null;
   users: User[];
   markers: Marker[];
   comments: Record<string, Comment[]>;
+  projects: Project[];
   currentProject: string;
-  connect: () => void;
+  isLoading: boolean;
+  
+  setFirebaseUser: (user: FirebaseUser | null) => void;
   setProject: (projectId: string) => void;
   moveCursor: (x: number, y: number) => void;
   addMarker: (marker: Omit<Marker, 'id' | 'author' | 'authorId' | 'authorColor'> & { id?: string }) => void;
   addComment: (markerId: string, text: string) => void;
-  editComment: (markerId: string, commentId: string, text: string) => void;
   deleteMarker: (markerId: string) => void;
-  deleteComment: (markerId: string, commentId: string) => void;
+  
+  // Initialization
+  init: () => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
-  socket: null,
   currentUser: null,
+  firebaseUser: null,
   users: [],
   markers: [],
   comments: {},
+  projects: [],
   currentProject: 'home',
+  isLoading: true,
 
-  connect: () => {
-    if (get().socket) return;
-    
-    // Identity is now random on every refresh to allow testing different people
-    const initialQuery: Record<string, string> = {};
+  setFirebaseUser: (user) => {
+    if (!auth || !rtdb) return;
+    if (user) {
+      const color = `hsl(${Math.random() * 360}, 80%, 70%)`;
+      const newUser: User = {
+        id: user.uid,
+        name: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+        x: 0,
+        y: 0,
+        color,
+        projectId: get().currentProject
+      };
+      set({ firebaseUser: user, currentUser: newUser });
+      
+      // Setup RTDB Presence
+      const userRef = ref(rtdb, `cursors/${get().currentProject}/${user.uid}`);
+      onDisconnect(userRef).remove();
+      setRTDB(userRef, newUser);
+    } else {
+      set({ firebaseUser: null, currentUser: null });
+    }
+  },
 
-    const socket = io({ query: initialQuery });
-    
-    socket.on('init', (data: { you: User, users: User[], markers: Marker[], comments: Record<string, Comment[]> }) => {
-      // Identity persistence disabled as per user request (change on every refresh)
-      set({
-        socket,
-        currentUser: data.you,
-        users: data.users,
-        markers: data.markers,
-        comments: data.comments
-      });
+  init: () => {
+    const currentAuth = auth;
+    const currentDb = db;
+    if (!currentAuth || !currentDb) {
+      set({ isLoading: false });
+      return;
+    }
+    // 1. Auth state listener
+    onAuthStateChanged(currentAuth, (user) => {
+      get().setFirebaseUser(user);
+      set({ isLoading: false });
     });
 
-    socket.on('user-joined', (user: User) => {
-      set(state => ({ users: [...state.users.filter(u => u.id !== user.id), user] }));
-    });
-
-    socket.on('user-updated', (user: User) => {
-      set(state => ({ users: state.users.map(u => u.id === user.id ? user : u) }));
-    });
-
-    socket.on('cursor-moved', (user: User) => {
-      set(state => ({
-        users: state.users.map(u => u.id === user.id ? { ...u, x: user.x, y: user.y } : u)
-      }));
-    });
-
-    socket.on('user-left', (id: string) => {
-      set(state => ({ users: state.users.filter(u => u.id !== id) }));
-    });
-
-    socket.on('marker-added', (marker: Marker) => {
-      set(state => ({ markers: [...state.markers, marker] }));
-    });
-
-    socket.on('comment-added', ({ markerId, comment }: { markerId: string, comment: Comment }) => {
-      set(state => ({
-        comments: {
-          ...state.comments,
-          [markerId]: [...(state.comments[markerId] || []), comment]
-        }
-      }));
-    });
-
-    socket.on('marker-deleted', (markerId: string) => {
-      set(state => {
-        const newComments = { ...state.comments };
-        delete newComments[markerId];
-        return {
-          markers: state.markers.filter(m => m.id !== markerId),
-          comments: newComments
-        };
-      });
-    });
-
-    socket.on('comment-deleted', ({ markerId, commentId }: { markerId: string, commentId: string }) => {
-      set(state => ({
-        comments: {
-          ...state.comments,
-          [markerId]: (state.comments[markerId] || []).filter(c => c.id !== commentId)
-        }
-      }));
-    });
-
-    socket.on('comment-edited', ({ markerId, commentId, text }: { markerId: string, commentId: string, text: string }) => {
-      set(state => ({
-        comments: {
-          ...state.comments,
-          [markerId]: (state.comments[markerId] || []).map(c => c.id === commentId ? { ...c, text } : c)
-        }
-      }));
+    // 2. Global Projects listener
+    const projectsRef = collection(currentDb, 'projects');
+    const qProjects = query(projectsRef, orderBy('createdAt', 'desc'));
+    onSnapshot(qProjects, (snapshot) => {
+      const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
+      set({ projects });
     });
   },
 
   setProject: (projectId: string) => {
     set({ currentProject: projectId });
-    get().socket?.emit('join-project', projectId);
+    const currentDb = db;
+    const currentRtdb = rtdb;
+    if (!currentDb || !currentRtdb) return;
+    
+    // Update marker listeners
+    const markersRef = collection(currentDb, `projects/${projectId}/markers`);
+    onSnapshot(markersRef, (snapshot) => {
+      const markers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Marker));
+      set({ markers });
+      
+      // For each marker, listen to comments
+      markers.forEach(marker => {
+        const commentsRef = collection(currentDb, `projects/${projectId}/markers/${marker.id}/comments`);
+        onSnapshot(query(commentsRef, orderBy('timestamp', 'asc')), (cSnapshot) => {
+          const mComments = cSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment));
+          set(state => ({
+            comments: { ...state.comments, [marker.id]: mComments }
+          }));
+        });
+      });
+    });
+
+    // Update RTDB cursor listener
+    const cursorsRef = ref(currentRtdb, `cursors/${projectId}`);
+    onValue(cursorsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        set({ users: Object.values(data) });
+      } else {
+        set({ users: [] });
+      }
+    });
+
+    // If user is logged in, update their position in RTDB
+    const user = get().currentUser;
+    if (user) {
+      const userRef = ref(currentRtdb, `cursors/${projectId}/${user.id}`);
+      setRTDB(userRef, { ...user, projectId });
+    }
   },
 
   moveCursor: (x: number, y: number) => {
-    get().socket?.emit('cursor-move', { x, y });
+    const user = get().currentUser;
+    const currentRtdb = rtdb;
+    if (!user || !currentRtdb) return;
+    
+    // Update local state for immediate feedback
+    set(state => ({
+      currentUser: state.currentUser ? { ...state.currentUser, x, y } : null
+    }));
+
+    // Update Firebase RTDB
+    const userRef = ref(currentRtdb, `cursors/${get().currentProject}/${user.id}`);
+    setRTDB(userRef, { ...user, x, y, projectId: get().currentProject });
   },
 
-  addMarker: (markerData: Omit<Marker, 'id' | 'author' | 'authorId' | 'authorColor'> & { id?: string }) => {
+  addMarker: async (markerData) => {
     const me = get().currentUser;
-    if (!me) return;
-    
-    const marker: Marker = {
+    const project = get().currentProject;
+    const currentDb = db;
+    if (!me || project === 'home' || !currentDb) return;
+
+    const marker = {
       ...markerData,
-      id: markerData.id || Math.random().toString(36).substring(7),
       author: me.name,
       authorId: me.id,
-      authorColor: me.color
+      authorColor: me.color,
+      projectId: project,
+      createdAt: serverTimestamp()
     };
-    
-    get().socket?.emit('add-marker', marker);
+
+    await addDoc(collection(currentDb, `projects/${project}/markers`), marker);
+    // Increment feedback count on project
+    await updateDoc(doc(currentDb, 'projects', project), {
+      feedbackCount: increment(1)
+    });
   },
 
-  addComment: (markerId: string, text: string) => {
+  addComment: async (markerId, text) => {
     const me = get().currentUser;
-    if (!me) return;
+    const project = get().currentProject;
+    const currentDb = db;
+    if (!me || project === 'home' || !currentDb) return;
 
-    const comment: Comment = {
-      id: Math.random().toString(36).substring(7),
+    const comment = {
       text,
       author: me.name,
       authorId: me.id,
       timestamp: new Date().toISOString()
     };
 
-    get().socket?.emit('add-comment', { markerId, comment });
+    await addDoc(collection(currentDb, `projects/${project}/markers/${markerId}/comments`), comment);
   },
 
-  editComment: (markerId: string, commentId: string, text: string) => {
-    get().socket?.emit('edit-comment', { markerId, commentId, text });
-  },
-
-  deleteMarker: (markerId: string) => {
-    console.log('[STORE] Deleting marker:', markerId);
-    get().socket?.emit('delete-marker', markerId);
-  },
-
-  deleteComment: (markerId: string, commentId: string) => {
-    console.log('[STORE] Deleting comment:', { markerId, commentId });
-    get().socket?.emit('delete-comment', { markerId, commentId });
+  deleteMarker: async (markerId) => {
+    const project = get().currentProject;
+    const currentDb = db;
+    if (project === 'home' || !currentDb) return;
+    await deleteDoc(doc(currentDb, `projects/${project}/markers`, markerId));
   }
 }));

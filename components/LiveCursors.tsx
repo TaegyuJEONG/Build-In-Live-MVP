@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 
 export function LiveCursors({ projectId }: { projectId: string }) {
-  const { connect, setProject, users, currentUser, moveCursor } = useStore();
+  const { init, setProject, users, currentUser, moveCursor } = useStore();
   
   const [trackedScrollY, setTrackedScrollY] = useState(0);
 
   useEffect(() => {
-    connect();
+    init();
     setProject(projectId);
     
     const handleMouseMove = (e: MouseEvent) => {

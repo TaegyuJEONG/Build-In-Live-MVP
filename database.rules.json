@@ -1,0 +1,10 @@
+{
+  "rules": {
+    "cursors": {
+      "$projectId": {
+        ".read": true,
+        ".write": true
+      }
+    }
+  }
+}

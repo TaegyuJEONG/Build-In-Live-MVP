@@ -3,7 +3,7 @@
 import { Radio, Terminal, Cpu, Plus, Minus, Layers, Grid3x3, BarChart3, Settings, Focus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/BottomNav"
-import React, { useEffect, useState, useRef } from "react"
+import React, { useEffect, useState, useRef, useMemo } from "react"
 import { useStore } from "@/lib/store"
 
 // Company logos as SVG components - lesser known companies
@@ -149,120 +149,48 @@ const logoColors: Record<string, string> = {
   plain: "#FF4D4D",
 }
 
-// Create a perfect hex grid for 5 rings
-const generateHexGrid = (rings: number) => {
-  const cubes: any[] = [];
-  const logos = Object.keys(CompanyLogos);
+// Hex directions for clockwise spiral tracking
+const hexDirections = [
+  { q: 0, r: -1 }, // Top
+  { q: 1, r: -1 }, // Top-Right
+  { q: 1, r: 0 },  // Bottom-Right
+  { q: 0, r: 1 },  // Bottom
+  { q: -1, r: 1 }, // Bottom-Left
+  { q: -1, r: 0 }  // Top-Left
+];
+
+const getHexPosition = (index: number) => {
+  if (index === 0) return { q: 0, r: 0 };
   
-  // Directions for hex movement (Axial q, r)
-  const directions = [
-    { q: 1, r: 0 }, { q: 1, r: 1 }, { q: 0, r: 1 }, 
-    { q: -1, r: 0 }, { q: -1, r: -1 }, { q: 0, r: -1 }
-  ];
-
-  for (let ring = 0; ring <= rings; ring++) {
-    if (ring === 0) {
-      cubes.push({ q: 0, r: 0, ring: 0 });
-    } else {
-      let q = ring * directions[4].q; // Start at a specific point for each ring
-      let r = ring * directions[4].r;
+  let ring = 1;
+  let count = 0;
+  
+  while (true) {
+    const ringSize = ring * 6;
+    if (count + ringSize >= index) {
+      // Find position in this ring
+      let q = 0;
+      let r = -ring;
+      let posInRing = index - count - 1;
       
-      for (let side = 0; side < 6; side++) {
-        for (let step = 0; step < ring; step++) {
-          cubes.push({ q, r, ring });
-          q += directions[side].q;
-          r += directions[side].r;
-        }
+      const sideLength = ring;
+      const side = Math.floor(posInRing / sideLength);
+      const step = posInRing % sideLength;
+      
+      // Move to starting corner and then follow steps
+      for (let s = 0; s < side; s++) {
+        q += hexDirections[(s + 2) % 6].q * sideLength;
+        r += hexDirections[(s + 2) % 6].r * sideLength;
       }
-    }
-  }
-
-  let generatedCubes = cubes.map((c, i) => {
-    // Coordinate translation: Expanded spacing (100x58)
-    const x = 100 * (c.q - c.r);
-    const y = 58 * (c.q + c.r);
-    
-    // Special Overrides based on coordinates
-    let type: string | undefined = undefined;
-    
-    // Fixed central placements
-    if (c.q === 0 && c.r === 0) {
-      type = "gold";
-    } else if (c.q === 0 && c.r === -1) {
-      type = "!";
-    } else if (c.q === -1 && c.r === 0) {
-      type = "?";
-    } else if (c.q === 1 && c.r === 1) {
-      type = "fireworks";
-    } else {
-      // Spread additional ? and ! randomly across the board (approx 4% chance)
-      const specialHash = Math.abs(Math.sin(c.q * 89.123 + c.r * 11.456)) * 10000;
-      const specialRandom = specialHash % 100; // 0 to 99.99
+      q += hexDirections[(side + 2) % 6].q * step;
+      r += hexDirections[(side + 2) % 6].r * step;
       
-      if (specialRandom < 6) type = "!";
-      else if (specialRandom < 12) type = "?";
-      else if (specialRandom < 15) type = "fireworks";
+      return { q, r };
     }
-    
-    // Pseudo-random noise [0..1) based on hex coordinates
-    const noise = Math.abs(Math.sin(c.q * 12.9898 + c.r * 78.233)) % 1;
-    
-    // Weight the probability so center ranges have higher activity
-    const centerWeight = Math.max(0, 1 - (c.ring / 12)); 
-    
-    // activityScore combines distance from center (40%) and randomness (60%)
-    const activityScore = (centerWeight * 0.4) + (noise * 0.6);
-
-    // Automate commit trace globally across the entire grid (approx 25% of cubes)
-    // Use coordinate-based hashing for a deterministic random look (exclude central gold cube)
-    const commitHash = Math.abs(Math.sin(c.q * 71.321 + c.r * 19.456)) * 10000;
-    const isAutoCommitting = (c.q === 0 && c.r === 0) ? false : (commitHash % 100) < 25; 
-    const isRed = (commitHash % 100) < 10; // 10% chance for a red commit (40% of all commits)
-    const isHeartActive = (c.q === 0 && c.r === 0) ? false : (commitHash % 100) > 85; // ~15% chance for heart
-
-    let visitors = 0;
-    if (activityScore > 0.85) visitors = 100;
-    else if (activityScore > 0.70) visitors = 80;
-    else if (activityScore > 0.55) visitors = 60;
-    else if (activityScore > 0.40) visitors = 40;
-    else if (activityScore > 0.25) visitors = 20;
-    else visitors = 0;
-
-    // Preserve special marker high counts
-    if (type === "gold") visitors = 150;
-    if (type === "?" || type === "!" || type === "fireworks") visitors = 95;
-
-    // Coordinate-based pseudo-random hash for logo assignment
-    // Gives a completely random look without using Math.random() directly
-    const logoHash = Math.abs(Math.sin(c.q * 53.123 + c.r * 12.345)) * 10000;
-    const logoIdx = Math.floor(logoHash) % logos.length;
-    const logo = type ? undefined : logos[logoIdx];
-
-    const commitDelay = Number((Math.abs(Math.sin((x + 10) * (y + 20))) * 10).toFixed(2));
-    const heartDelay = Number((Math.abs(Math.sin((x + 50) * (y + 30))) * 15).toFixed(2));
-
-    return {
-      id: (type === "?" && c.q === -1 && c.r === 0) ? "portfolio" : undefined,
-      x,
-      y,
-      ring: c.ring,
-      delay: Number((c.ring * 0.5 + (i % 10) * 0.2).toFixed(2)),
-      type,
-      visitors,
-      logo,
-      isAutoCommitting,
-      isRed,
-      isHeartActive,
-      commitDelay,
-      heartDelay
-    };
-
-  });
-
-  return generatedCubes;
+    count += ringSize;
+    ring++;
+  }
 };
-
-const cubePositions = generateHexGrid(10);
 
 
 // 3D Symbol Component for floating ? and ! - True isometric standing sign
@@ -698,15 +626,68 @@ function HeartFloat({ isHeartActive, delay = 0, duration = 10 }: { isHeartActive
 }
 
 export default function BuildInLive() {
+  const [mounted, setMounted] = React.useState(false)
   const router = useRouter();
-  const { connect, setProject } = useStore();
+  const { init, setProject, projects, users } = useStore();
 
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [selectedCube, setSelectedCube] = useState<any | null>(null);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
-  const [committingCubeId, setCommittingCubeId] = useState<string | null>(null);
+  
+  React.useEffect(() => {
+    setMounted(true)
+    init();
+    setProject('home');
+  }, []);
+
+  // Real projects mapped to Hex Grid
+  const cubePositions = useMemo(() => {
+    // 1. Always start with the Gold Cube at center
+    const cubes: any[] = [{
+      id: 'center',
+      x: 0,
+      y: 0,
+      q: 0, 
+      r: 0,
+      ring: 0,
+      delay: 0,
+      type: 'gold',
+      visitors: 150,
+      logo: undefined,
+      isAutoCommitting: false,
+      isHeartActive: false,
+      commitDelay: 0,
+      heartDelay: 0
+    }];
+
+    // 2. Add real projects clockwise around it
+    projects.forEach((p, i) => {
+      const pos = getHexPosition(i + 1);
+      const x = 100 * (pos.q - pos.r);
+      const y = 58 * (pos.q + pos.r);
+      cubes.push({
+        id: p.id,
+        x,
+        y,
+        q: pos.q,
+        r: pos.r,
+        ring: Math.max(Math.abs(pos.q), Math.abs(pos.r), Math.abs(pos.q + pos.r)),
+        delay: (i + 1) * 0.1,
+        type: '?', // Default to ? as per user request
+        logo: undefined,
+        visitors: p.feedbackCount * 10, // Mocked visitor intensity based on feedback
+        isAutoCommitting: true,
+        isHeartActive: true,
+        commitDelay: Math.random() * 5,
+        heartDelay: Math.random() * 10,
+        projectData: p
+      });
+    });
+
+    return cubes;
+  }, [projects]);
   
   const isDragging = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
@@ -740,34 +721,24 @@ export default function BuildInLive() {
     return `${cx}.${cy}.${zoom.toFixed(2)}_INF`;
   };
 
-  useEffect(() => {
-    connect();
-    setProject('home');
-  }, []);
-
-  const generateProjectData = (cube: any) => {
-    const hash = Math.abs(Math.sin((cube.x + 1) * (cube.y + 1)) * 10000) || 1;
-    
-    const keywords: string[] = [];
-    let kHash = hash;
-    for (let i = 0; i < 3 + (Math.floor(kHash) % 3); i++) {
-      kHash = Math.abs(Math.sin(kHash) * 10000);
-      const kw = KEYWORD_POOL[Math.floor(kHash) % KEYWORD_POOL.length];
-      if (!keywords.includes(kw)) keywords.push(kw);
-    }
-
-    const id = cube.id || cube.logo || cube.type || "center";
+  const generateProjectCardData = (cube: any) => {
+    if (cube.type === 'gold') return null;
+    const p = cube.projectData;
+    if (!p) return null;
     
     return {
-      id: id,
-      name: id === "center" ? `SPATIAL_NODE_[${Math.abs(cube.q)},${Math.abs(cube.r)}]` : id.toUpperCase(),
-      keywords: keywords.slice(0, 5),
+      id: p.id,
+      name: p.name.toUpperCase(),
+      keywords: ["REAL_PROJECT", "LIVE_SYNC"],
       visitors: cube.visitors,
-      likes: Math.floor(hash % 500) + 12,
-      feedbacks: Math.floor((hash * 2) % 100),
-      errorsFixed: Math.floor((hash * 3) % 40)
+      likes: p.feedbackCount * 5,
+      feedbacks: p.feedbackCount,
+      errorsFixed: 0,
+      url: p.url
     };
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#0a0a0a] select-none" style={{ fontFamily: "Inter, sans-serif" }}>
@@ -911,12 +882,9 @@ export default function BuildInLive() {
           </div>
 
           {cubePositions.map((cube, i) => {
-            const data = generateProjectData(cube);
-            const isHidden = selectedKeyword ? !data.keywords.includes(selectedKeyword) : false;
-            
             return (
               <Cube
-                key={i}
+                key={cube.id}
                 x={cube.x}
                 y={cube.y}
                 ring={cube.ring}
@@ -924,10 +892,10 @@ export default function BuildInLive() {
                 type={cube.type}
                 logo={cube.logo}
                 visitors={cube.visitors}
-                isHidden={isHidden}
-                isCommitting={cube.isAutoCommitting || committingCubeId === (cube.id || cube.logo || cube.type || `node-${cube.x}-${cube.y}`)}
+                isHidden={false}
+                isCommitting={cube.id === 'center' ? false : true}
                 commitDelay={cube.commitDelay}
-                commitColor={cube.isRed ? "red" : "white"}
+                commitColor={"white"}
                 isHeartActive={cube.isHeartActive}
                 heartDelay={cube.heartDelay}
                 onClick={() => {
@@ -942,8 +910,9 @@ export default function BuildInLive() {
       </main>
 
       {/* Project Status Modal / Detail Overlay */}
-      {selectedCube && (() => {
-        const data = generateProjectData(selectedCube);
+      {selectedCube && selectedCube.type !== 'gold' && (() => {
+        const data = generateProjectCardData(selectedCube);
+        if (!data) return null;
         return (
           <div 
             className="fixed right-12 top-1/2 -translate-y-1/2 z-[100] w-[340px] bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/20 shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col animate-in fade-in slide-in-from-right-8 duration-300 pointer-events-auto"
@@ -965,47 +934,35 @@ export default function BuildInLive() {
 
             {/* Body */}
             <div className="p-6 flex flex-col gap-6">
-              {/* Keywords */}
+              {/* URL */}
               <div>
-                <div className="text-[9px] text-white/40 tracking-[0.3em] uppercase mb-3">Core Focus / Keywords</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {data.keywords.map(kw => (
-                    <div key={kw} className="px-2 py-1 border border-white/20 text-[9px] text-white/90 uppercase tracking-[0.1em] bg-white/5 font-medium">
-                      {kw}
-                    </div>
-                  ))}
+                <div className="text-[9px] text-white/40 tracking-[0.3em] uppercase mb-3">Live Environment</div>
+                <div className="text-[11px] text-white/80 font-mono break-all bg-white/5 p-2 border border-white/10">
+                  {data.url}
                 </div>
               </div>
 
               {/* Metrics Grid */}
               <div className="grid grid-cols-2 gap-px bg-white/10 border border-white/10">
                 <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
-                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Live Builders</div>
+                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Feedback Count</div>
                   <div className="text-xl font-mono text-white flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                    {data.visitors}
+                    {data.feedbacks}
                   </div>
                 </div>
                 <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
-                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Likes</div>
-                  <div className="text-xl font-mono text-white/90 px-1">{data.likes}</div>
-                </div>
-                <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
-                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Feedback</div>
-                  <div className="text-xl font-mono text-white/90 px-1">{data.feedbacks}</div>
-                </div>
-                <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
-                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Errors</div>
-                  <div className="text-xl font-mono text-white/90 px-1">{data.errorsFixed}</div>
+                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Mock Intensity</div>
+                  <div className="text-xl font-mono text-white/90 px-1">{data.visitors}</div>
                 </div>
               </div>
 
               {/* Call to Action */}
               <button 
                 className="w-full py-4 mt-1 bg-white text-black font-black tracking-[0.3em] text-[10px] hover:bg-white/90 transition-colors uppercase border-none cursor-pointer"
-                onClick={() => router.push(`/project/${data.id}`)}
+                onClick={() => router.push(`/feedback/${data.id}`)}
               >
-                Enter Desk
+                ENTER_FEEDBACK_TERMINAL
               </button>
 
             </div>
@@ -1025,16 +982,18 @@ export default function BuildInLive() {
         </div>
         <div className="space-y-6">
           <div className="flex justify-between items-end">
-            <span className="text-[8px] text-white/30 uppercase tracking-widest">Builders</span>
-            <span className="text-[10px] text-[#F95A56] font-mono font-bold">2,184</span>
+            <span className="text-[8px] text-white/30 uppercase tracking-widest">Connectors</span>
+            <span className="text-[10px] text-[#F95A56] font-mono font-bold">{users.length}</span>
           </div>
           <div className="flex justify-between items-end">
-            <span className="text-[8px] text-white/30 uppercase tracking-widest">Studios</span>
-            <span className="text-[10px] text-white/60 font-mono">142</span>
+            <span className="text-[8px] text-white/30 uppercase tracking-widest">Active Studios</span>
+            <span className="text-[10px] text-white/60 font-mono">{projects.length}</span>
           </div>
           <div className="flex justify-between items-end">
-            <span className="text-[8px] text-white/30 uppercase tracking-widest">Events</span>
-            <span className="text-[10px] text-white/60 font-mono">8,902</span>
+            <span className="text-[8px] text-white/30 uppercase tracking-widest">Total Feedback</span>
+            <span className="text-[10px] text-white/60 font-mono">
+              {projects.reduce((acc, p) => acc + (p.feedbackCount || 0), 0)}
+            </span>
           </div>
         </div>
       </div>
