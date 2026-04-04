@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/BottomNav"
 import React, { useEffect, useState, useRef, useMemo } from "react"
 import { useStore } from "@/lib/store"
+import { RoomProvider, useStorage, useOthers } from "@/liveblocks.config"
+import { ClientSideSuspense } from "@liveblocks/react"
+import { LiveList, LiveMap } from "@liveblocks/client"
 
 // Company logos as SVG components - lesser known companies
 const CompanyLogos: Record<string, React.ReactNode> = {
@@ -630,7 +633,7 @@ function HeartFloat({ isHeartActive, delay = 0, duration = 10 }: { isHeartActive
 export default function BuildInLive() {
   const [mounted, setMounted] = React.useState(false)
   const router = useRouter();
-  const { init, setProject, projects, users, firebaseUser, projectVisitorCounts } = useStore();
+  const { init, setProject, projects, users, firebaseUser } = useStore();
 
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -734,7 +737,7 @@ export default function BuildInLive() {
       id: p.id,
       name: p.name.toUpperCase(),
       keywords: ["REAL_PROJECT", "LIVE_SYNC"],
-      visitors: projectVisitorCounts[p.id] || 0,
+      visitors: cube.visitors,
       likes: p.feedbackCount * 5,
       feedbacks: p.feedbackCount,
       errorsFixed: 0,
@@ -963,17 +966,29 @@ export default function BuildInLive() {
 
               {/* Metrics Grid */}
               <div className="grid grid-cols-2 gap-px bg-white/10 border border-white/10">
-                <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
-                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Feedback Count</div>
-                  <div className="text-xl font-mono text-white flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                    {data.feedbacks}
+                <RoomProvider 
+                  id={data.id} 
+                  initialPresence={{ cursor: null, name: "Anonymous", color: "#F95A56", pathname: "" }}
+                  initialStorage={{ markers: new LiveList([]), comments: new LiveMap() }}
+                >
+                  <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
+                    <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Feedback Count</div>
+                    <div className="text-xl font-mono text-white flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                      <ClientSideSuspense fallback={<>{data.feedbacks}</>}>
+                        {() => <LiveFeedbackCountReader fallback={data.feedbacks} />}
+                      </ClientSideSuspense>
+                    </div>
                   </div>
-                </div>
-                <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
-                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Active Viewing</div>
-                  <div className="text-xl font-mono text-white/90 px-1">{data.visitors}</div>
-                </div>
+                  <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
+                    <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Viewing</div>
+                    <div className="text-xl font-mono text-white/90 px-1 flex items-center gap-2">
+                      <ClientSideSuspense fallback={<>{data.visitors}</>}>
+                        {() => <LiveVisitorCountReader fallback={data.visitors} />}
+                      </ClientSideSuspense>
+                    </div>
+                  </div>
+                </RoomProvider>
               </div>
 
               {/* Issue Memo */}
@@ -1032,4 +1047,16 @@ export default function BuildInLive() {
       </div>
     </div>
   )
+}
+function LiveFeedbackCountReader({ fallback }: { fallback: number }) {
+  const markers = useStorage((root) => root.markers);
+  return <>{markers ? markers.length : fallback}</>;
+}
+
+function LiveVisitorCountReader({ fallback }: { fallback: number }) {
+  const others = useOthers();
+  // others.length is other people, +1 is for "me" viewing it in the terminal
+  // (though in this dashboard modal, it's just showing how many are in the room)
+  const count = (others?.length || 0) + 1;
+  return <>{count}</>;
 }

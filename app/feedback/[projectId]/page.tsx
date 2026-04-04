@@ -2,13 +2,12 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
-import { RoomProvider } from "@/liveblocks.config"
+import { RoomProvider, useStorage, useOthers } from "@/liveblocks.config"
 import { ClientSideSuspense } from "@liveblocks/react"
 import { LiveCursors } from "@/components/LiveCursors"
 import { FeedbackSystem } from "@/components/FeedbackSystem"
-import { db, rtdb } from "@/lib/firebase"
+import { db } from "@/lib/firebase"
 import { doc, getDoc, setDoc } from "firebase/firestore"
-import { ref, set as setRTDB, onDisconnect, remove } from "firebase/database"
 import { Loader2, ArrowLeft, Globe, Share2, List, MessageSquarePlus, ChevronLeft, ChevronRight, Check } from "lucide-react"
 import { LiveList, LiveMap } from "@liveblocks/client"
 
@@ -65,24 +64,6 @@ export default function FeedbackTerminalPage() {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
-
-    // Track this visitor in RTDB for real-time Active Viewing count
-    if (rtdb && projectId) {
-      const vid = `visitor_${Math.random().toString(36).substring(7)}`;
-      const presenceRef = ref(rtdb, `cursors/${projectId}/${vid}`);
-      console.log(`[FeedbackTerminal] Setting presence for projectId: ${projectId}, visitorId: ${vid}`);
-      setRTDB(presenceRef, { 
-        id: vid, 
-        projectId, 
-        x: 0, 
-        y: 0, 
-        name: 'Visitor', 
-        color: '#F95A56',
-        lastSeen: new Date().toISOString()
-      }).catch(err => console.error("[RTDB Error]", err));
-      onDisconnect(presenceRef).remove();
-    }
-
     return () => window.removeEventListener('resize', checkMobile);
   }, [])
 
@@ -229,16 +210,7 @@ export default function FeedbackTerminalPage() {
                     <ArrowLeft className="w-5 h-5" />
                   </button>
                   
-                  {!isMobile && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                      <div>
-                        <div className="text-[10px] font-black tracking-tighter text-white uppercase">
-                          {projectData.name || 'ANONYMOUS_PROJECT'}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  {!isMobile && <HeaderStatus projectName={projectData.name} />}
                 </div>
 
                 <div className="flex items-center gap-2 md:gap-3">
@@ -438,4 +410,31 @@ export default function FeedbackTerminalPage() {
       </ClientSideSuspense>
     </RoomProvider>
   )
+}
+
+function HeaderStatus({ projectName }: { projectName: string }) {
+  const markers = useStorage((root) => root.markers);
+  const others = useOthers();
+  const count = markers?.length || 0;
+  const viewing = (others?.length || 0) + 1;
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 text-white font-mono">
+        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+        <span className="text-[10px] font-bold">{count}</span>
+      </div>
+      <div className="w-px h-3 bg-white/20" />
+      <div className="flex items-center gap-1.5 text-white/50 font-mono">
+        <span className="text-[8px] uppercase tracking-widest">Viewing</span>
+        <span className="text-[10px] font-bold text-white/80">{viewing}</span>
+      </div>
+      <div className="w-px h-3 bg-white/20" />
+      <div>
+        <div className="text-[10px] font-black tracking-tighter text-white uppercase">
+          {projectName || 'ANONYMOUS_PROJECT'}
+        </div>
+      </div>
+    </div>
+  );
 }

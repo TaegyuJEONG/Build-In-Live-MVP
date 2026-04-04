@@ -69,7 +69,6 @@ interface AppState {
   markers: Marker[];
   comments: Record<string, Comment[]>;
   projects: Project[];
-  projectVisitorCounts: Record<string, number>;
   currentProject: string;
   isLoading: boolean;
   
@@ -91,7 +90,6 @@ export const useStore = create<AppState>((set, get) => ({
   markers: [],
   comments: {},
   projects: [],
-  projectVisitorCounts: {},
   currentProject: 'home',
   isLoading: true,
 
@@ -138,24 +136,6 @@ export const useStore = create<AppState>((set, get) => ({
       const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
       set({ projects });
     });
-
-    // 3. Global Real-time Visitor counts listener
-    const currentRtdb = rtdb;
-    if (currentRtdb) {
-      const cursorsRef = ref(currentRtdb, 'cursors');
-      onValue(cursorsRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          const counts: Record<string, number> = {};
-          Object.entries(data).forEach(([pId, users]: [string, any]) => {
-            counts[pId] = Object.keys(users).length;
-          });
-          set({ projectVisitorCounts: counts });
-        } else {
-          set({ projectVisitorCounts: {} });
-        }
-      });
-    }
   },
 
   setProject: (projectId: string) => {

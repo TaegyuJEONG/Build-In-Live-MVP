@@ -4,10 +4,9 @@ import { useState, useEffect, RefObject } from "react";
 import { useStorage, useMutation, useSelf } from "@/liveblocks.config";
 import { LiveList } from "@liveblocks/client";
 import { MessageSquarePlus, X, List, Trash2, Edit3, MapPin, Layout, ChevronLeft, ChevronRight } from "lucide-react";
-import { auth, storage, db } from "@/lib/firebase";
+import { auth, storage } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { doc, updateDoc, increment, getDoc } from "firebase/firestore";
 import { User, Ghost, CheckCircle } from "lucide-react";
 import { Comment, Marker } from "@/liveblocks.config";
 import { SnapshotOverlay } from "./SnapshotOverlay";
@@ -263,7 +262,6 @@ export function FeedbackSystem({
       markers.delete(index);
     }
     liveblocksStorage.get("comments").delete(markerId);
-    
     setActiveMarkerId(null);
   }, [storage]);
 
@@ -287,33 +285,6 @@ export function FeedbackSystem({
       if (index !== -1) commentsList.delete(index);
     }
   }, []);
-
-  // 3.1 Feedback Count Auto-Sync Effect
-  // NOTE: This sync only works if the user has Firestore write permissions (e.g., project owner).
-  useEffect(() => {
-    const currentDb = db;
-    if (!currentDb || !markers || !projectId) return;
-    
-    // If you are the owner, you can sync the count
-    const syncCount = async () => {
-      try {
-        const projectRef = doc(currentDb, 'projects', projectId);
-        const snapshot = await getDoc(projectRef);
-        if (snapshot.exists()) {
-          const pData = snapshot.data();
-          if (pData.feedbackCount !== markers.length && pData.ownerId === me?.id) {
-            console.log(`[FeedbackSystem] Syncing feedback count for ${projectId}: ${pData.feedbackCount} -> ${markers.length}`);
-            await updateDoc(projectRef, { feedbackCount: markers.length });
-          }
-        }
-      } catch (e) {
-        // Silently fail if not owner or permission denied
-        console.debug("[FeedbackSystem] Stale feedback count sync (likely not owner)", e);
-      }
-    };
-    
-    syncCount();
-  }, [markers?.length, projectId, me?.id]);
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (!isAddingMode) return;
