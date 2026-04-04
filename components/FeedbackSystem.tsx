@@ -10,6 +10,8 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage
 import { User, Ghost, CheckCircle } from "lucide-react";
 import { Comment, Marker } from "@/liveblocks.config";
 import { SnapshotOverlay } from "./SnapshotOverlay";
+import { db } from "@/lib/firebase";
+import { doc, updateDoc, increment } from "firebase/firestore";
 
 const getTimeAgo = (timestamp?: string) => {
   if (!timestamp) return 'just now';
@@ -219,6 +221,13 @@ export function FeedbackSystem({
     storage.get("markers").push(newMarker);
     storage.get("comments").set(newId, new LiveList([]));
     
+    // 🔥 Sync with Firestore for Dashboard total (Rule check: hasOnly(['feedbackCount']))
+    if (db) {
+      updateDoc(doc(db, "projects", projectId), {
+        feedbackCount: increment(1)
+      }).catch(e => console.error("Firestore sync failed", e));
+    }
+
     // UI state after add
     setActiveMarkerId(newId);
     setIsNewMarker(true);
@@ -262,8 +271,21 @@ export function FeedbackSystem({
       markers.delete(index);
     }
     liveblocksStorage.get("comments").delete(markerId);
+    
+    // 🔥 Sync with Firestore for Dashboard total
+    if (db && projectId) {
+      console.log(`Decreasing feedback count for ${projectId}...`);
+      updateDoc(doc(db, "projects", projectId), {
+        feedbackCount: increment(-1)
+      }).then(() => {
+        console.log("Firestore decrement success.");
+      }).catch(e => {
+        console.error("Firestore decrement failed", e);
+      });
+    }
+
     setActiveMarkerId(null);
-  }, [storage]);
+  }, [storage, projectId]);
 
   const editComment = useMutation(({ storage }, markerId: string, commentId: string, newText: string) => {
     const commentsList = storage.get("comments").get(markerId);

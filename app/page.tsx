@@ -1030,17 +1030,17 @@ export default function BuildInLive() {
         </div>
         <div className="space-y-6">
           <div className="flex justify-between items-end">
-            <span className="text-[8px] text-white/30 uppercase tracking-widest">Connectors</span>
-            <span className="text-[10px] text-[#F95A56] font-mono font-bold">{users.length}</span>
+            <span className="text-[8px] text-white/30 uppercase tracking-widest">Studio Viewing</span>
+            <span className="text-[10px] text-[#F95A56] font-mono font-bold">{(users?.length || 0) + 1}</span>
           </div>
           <div className="flex justify-between items-end">
-            <span className="text-[8px] text-white/30 uppercase tracking-widest">Active Studios</span>
+            <span className="text-[8px] text-white/30 uppercase tracking-widest">Active Desks</span>
             <span className="text-[10px] text-white/60 font-mono">{projects.length}</span>
           </div>
           <div className="flex justify-between items-end">
             <span className="text-[8px] text-white/30 uppercase tracking-widest">Total Feedback</span>
             <span className="text-[10px] text-white/60 font-mono">
-              {projects.reduce((acc, p) => acc + (p.feedbackCount || 0), 0)}
+              {projects.reduce((acc, p) => acc + (Number(p.feedbackCount) || 0), 0)}
             </span>
           </div>
         </div>

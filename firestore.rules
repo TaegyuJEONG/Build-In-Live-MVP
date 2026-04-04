@@ -11,8 +11,10 @@ service cloud.firestore {
     match /projects/{projectId} {
       allow read: if true;
       allow create: if request.auth != null;
-      // Only owner can update project metadata
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
+      // Only owner can update project metadata, or anyone can update JUST the feedbackCount
+      allow update: if (request.auth != null && request.auth.uid == resource.data.ownerId) || 
+                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['feedbackCount']));
+      allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
       
       // Markers and comments are accessible for collaborative feedback
       match /markers/{markerId} {
