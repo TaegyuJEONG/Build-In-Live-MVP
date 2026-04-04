@@ -639,7 +639,9 @@ export default function BuildInLive() {
   const [zoom, setZoom] = useState(1);
   const [selectedCube, setSelectedCube] = useState<any | null>(null);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   React.useEffect(() => {
     setMounted(true)
@@ -784,16 +786,54 @@ export default function BuildInLive() {
         <div className="text-lg font-black tracking-tighter text-white/80 uppercase">
           BUILD_IN_LIVE
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 relative">
           <button className="hover:bg-white/5 p-2 transition-colors">
             <Grid3x3 className="w-[18px] h-[18px] text-white/40" />
           </button>
           <button className="hover:bg-white/5 p-2 transition-colors">
             <BarChart3 className="w-[18px] h-[18px] text-white/40" />
           </button>
-          <button className="hover:bg-white/5 p-2 transition-colors">
-            <Settings className="w-[18px] h-[18px] text-white/40" />
-          </button>
+          <div className="relative">
+            <button 
+              className={`p-2 transition-colors ${isSettingsOpen ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-white/40'}`}
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+            >
+              <Settings className="w-[18px] h-[18px]" />
+            </button>
+
+            {isSettingsOpen && (
+              <div 
+                className="absolute right-0 mt-2 w-48 bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-200"
+                onMouseLeave={() => setIsSettingsOpen(false)}
+              >
+                <div className="p-1">
+                  <button 
+                    onClick={async () => {
+                      const { auth } = await import("@/lib/firebase");
+                      if (auth) {
+                        await auth.signOut();
+                        router.push("/auth");
+                      }
+                    }}
+                    className="w-full text-left px-4 py-3 text-[10px] tracking-widest text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase flex items-center gap-3"
+                  >
+                    <div className="w-1 h-1 bg-white/20 rounded-full" />
+                    Logout
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShowDeleteConfirm(true);
+                      setIsSettingsOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-[10px] tracking-widest text-[#F95A56]/60 hover:text-[#F95A56] hover:bg-[#F95A56]/5 transition-colors uppercase flex items-center gap-3"
+                  >
+                    <div className="w-1 h-1 bg-[#F95A56]/20 rounded-full" />
+                    Delete Account
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1045,9 +1085,73 @@ export default function BuildInLive() {
           </div>
         </div>
       </div>
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-[#0a0a0a] border border-[#F95A56]/30 shadow-2xl p-8 space-y-6">
+            <div className="space-y-4 text-center">
+              <div className="w-12 h-12 bg-[#F95A56]/10 border border-[#F95A56]/30 mx-auto flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-[#F95A56]" />
+              </div>
+              <h2 className="text-xl font-black text-white uppercase tracking-tighter">DELETE_ACCOUNT</h2>
+              <p className="text-[11px] text-white/50 leading-relaxed uppercase tracking-wider">
+                Are you sure you want to delete your account?<br/>
+                All projects and data will be permanently removed. This action cannot be undone.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <button 
+                onClick={async () => {
+                  try {
+                    const { auth, db } = await import("@/lib/firebase");
+                    const user = auth?.currentUser;
+                    if (user && db) {
+                      const { doc, deleteDoc, collection, query, where, getDocs, writeBatch } = await import("firebase/firestore");
+                      
+                      // 1. Delete all user-owned projects
+                      const projectsRef = collection(db, "projects");
+                      const q = query(projectsRef, where("ownerId", "==", user.uid));
+                      const projectSnapshots = await getDocs(q);
+                      
+                      const batch = writeBatch(db);
+                      projectSnapshots.forEach((pDoc) => {
+                        batch.delete(pDoc.ref);
+                      });
+                      await batch.commit();
+
+                      // 2. Delete user document from Firestore
+                      await deleteDoc(doc(db, "users", user.uid));
+                      
+                      // 3. Delete user account from Firebase Auth
+                      await user.delete();
+                      router.push("/auth");
+                    }
+                  } catch (error: any) {
+                    console.error("Deletion failed:", error);
+                    if (error.code === 'auth/requires-recent-login') {
+                      alert("Please log in again to continue. (Recent login session required)");
+                    }
+                  }
+                }}
+                className="w-full py-4 bg-[#F95A56] text-white font-black tracking-[0.3em] text-[10px] hover:brightness-110 transition-all uppercase"
+              >
+                CONFIRM_PERMANENT_DELETION
+              </button>
+              <button 
+                onClick={() => setShowDeleteConfirm(false)}
+                className="w-full py-4 bg-transparent border border-white/10 text-white font-black tracking-[0.3em] text-[10px] hover:bg-white/5 transition-all uppercase"
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
 function LiveFeedbackCountReader({ fallback }: { fallback: number }) {
   const markers = useStorage((root) => root.markers);
   return <>{markers ? markers.length : fallback}</>;
