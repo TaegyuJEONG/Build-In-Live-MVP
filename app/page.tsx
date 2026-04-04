@@ -1015,7 +1015,7 @@ export default function BuildInLive() {
         if (!data) return null;
         return (
           <div 
-            className="fixed right-12 top-1/2 -translate-y-1/2 z-[100] w-[340px] bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/20 shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col animate-in fade-in slide-in-from-right-8 duration-300 pointer-events-auto"
+            className="fixed left-4 right-4 md:left-auto md:right-12 top-1/2 -translate-y-1/2 z-[100] w-auto md:w-[340px] bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/20 shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col animate-in fade-in slide-in-from-right-8 duration-300 pointer-events-auto"
           >
             {/* Header */}
             <div className="flex justify-between items-center px-5 py-3 border-b border-white/10 bg-white/5">
@@ -1064,31 +1064,31 @@ export default function BuildInLive() {
             </div>
 
             {/* Body */}
-            <div className="p-6 flex flex-col gap-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
+            <div className="p-4 md:p-6 flex flex-col gap-4 md:gap-6 overflow-y-auto max-h-[70vh] custom-scrollbar text-[10px] md:text-[11px]">
               {isEditingProject ? (
-                <form onSubmit={handleProjectUpdate} className="space-y-6">
+                <form onSubmit={handleProjectUpdate} className="space-y-4 md:space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[9px] text-white/40 tracking-[0.3em] uppercase block">Project Name</label>
+                    <label className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase block">Project Name</label>
                     <input
                       required
-                      className="w-full bg-transparent border-b border-white/20 py-2 text-white text-xs focus:border-white focus:outline-none transition-colors"
+                      className="w-full bg-transparent border-b border-white/20 py-1.5 md:py-2 text-white text-[11px] md:text-xs focus:border-white focus:outline-none transition-colors"
                       value={editedData.name}
                       onChange={(e) => setEditedData({ ...editedData, name: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] text-white/40 tracking-[0.3em] uppercase block">URL</label>
+                    <label className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase block">URL</label>
                     <input
                       required
-                      className="w-full bg-transparent border-b border-white/20 py-2 text-white text-xs focus:border-white focus:outline-none transition-colors"
+                      className="w-full bg-transparent border-b border-white/20 py-1.5 md:py-2 text-white text-[11px] md:text-xs focus:border-white focus:outline-none transition-colors"
                       value={editedData.url}
                       onChange={(e) => setEditedData({ ...editedData, url: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] text-white/40 tracking-[0.3em] uppercase block">Description</label>
+                    <label className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase block">Description</label>
                     <textarea
-                      className="w-full bg-transparent border border-white/20 p-2 text-white text-xs focus:border-white focus:outline-none transition-colors min-h-[100px] resize-none"
+                      className="w-full bg-transparent border border-white/20 p-2 text-white text-[11px] md:text-xs focus:border-white focus:outline-none transition-colors min-h-[80px] md:min-h-[100px] resize-none"
                       value={editedData.description}
                       onChange={(e) => setEditedData({ ...editedData, description: e.target.value })}
                     />
@@ -1096,14 +1096,14 @@ export default function BuildInLive() {
                   <div className="flex gap-2 pt-2">
                     <button
                       type="submit"
-                      className="flex-1 py-3 bg-white text-black font-black tracking-[0.2em] text-[9px] hover:bg-white/90 transition-colors uppercase cursor-pointer"
+                      className="flex-1 py-2.5 md:py-3 bg-white text-black font-black tracking-[0.2em] text-[8px] md:text-[9px] hover:bg-white/90 transition-colors uppercase cursor-pointer"
                     >
                       SAVE_CHANGES
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsEditingProject(false)}
-                      className="flex-1 py-3 bg-transparent border border-white/10 text-white font-black tracking-[0.2em] text-[9px] hover:bg-white/5 transition-colors uppercase cursor-pointer"
+                      className="flex-1 py-2.5 md:py-3 bg-transparent border border-white/10 text-white font-black tracking-[0.2em] text-[8px] md:text-[9px] hover:bg-white/5 transition-colors uppercase cursor-pointer"
                     >
                       CANCEL
                     </button>
@@ -1114,8 +1114,8 @@ export default function BuildInLive() {
                   {/* Description */}
                   {data.description && (
                     <div>
-                      <div className="text-[9px] text-white/40 tracking-[0.3em] uppercase mb-3">Project Description</div>
-                      <div className="text-[11px] leading-relaxed text-white/80 opacity-90">
+                      <div className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase mb-2 md:mb-3">Project Description</div>
+                      <div className="text-[10px] md:text-[11px] leading-relaxed text-white/80 opacity-90">
                         {data.description}
                       </div>
                     </div>
@@ -1123,8 +1123,8 @@ export default function BuildInLive() {
 
                   {/* URL */}
                   <div>
-                    <div className="text-[9px] text-white/40 tracking-[0.3em] uppercase mb-3">Live Environment</div>
-                    <div className="text-[11px] text-white/80 font-mono break-all bg-white/5 p-2 border border-white/10">
+                    <div className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase mb-2 md:mb-3">Live Environment</div>
+                    <div className="text-[10px] md:text-[11px] text-white/80 font-mono break-all bg-white/5 p-2 border border-white/10">
                       {data.url}
                     </div>
                   </div>
@@ -1136,18 +1136,18 @@ export default function BuildInLive() {
                       initialPresence={{ cursor: null, name: "Anonymous", color: "#F95A56", pathname: "" }}
                       initialStorage={{ markers: new LiveList([]), comments: new LiveMap() }}
                     >
-                      <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
-                        <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Feedback Count</div>
-                        <div className="text-xl font-mono text-white flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                      <div className="flex flex-col gap-0.5 md:gap-1 p-2 md:p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
+                        <div className="text-[7px] md:text-[8px] text-white/40 tracking-[0.15em] uppercase mb-0.5 md:mb-1">Feedback Count</div>
+                        <div className="text-lg md:text-xl font-mono text-white flex items-center gap-1.5 md:gap-2">
+                          <div className="w-1 md:w-1.5 h-1 md:h-1.5 rounded-full bg-red-500 animate-pulse" />
                           <ClientSideSuspense fallback={<>{data.feedbacks}</>}>
                             {() => <LiveFeedbackCountReader fallback={data.feedbacks} />}
                           </ClientSideSuspense>
                         </div>
                       </div>
-                      <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
-                        <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Viewing</div>
-                        <div className="text-xl font-mono text-white/90 px-1 flex items-center gap-2">
+                      <div className="flex flex-col gap-0.5 md:gap-1 p-2 md:p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
+                        <div className="text-[7px] md:text-[8px] text-white/40 tracking-[0.15em] uppercase mb-0.5 md:mb-1">Viewing</div>
+                        <div className="text-lg md:text-xl font-mono text-white/90 px-1 flex items-center gap-1.5 md:gap-2">
                           <ClientSideSuspense fallback={<>{data.visitors}</>}>
                             {() => <LiveVisitorCountReader fallback={data.visitors} />}
                           </ClientSideSuspense>
@@ -1159,20 +1159,20 @@ export default function BuildInLive() {
                   {/* Issue Memo */}
                   {data.hasIssue && data.issueMemo && (
                     <div>
-                      <div className="text-[9px] text-[#F95A56] tracking-[0.3em] uppercase mb-3 flex items-center gap-2">
-                        <AlertTriangle className="w-3 h-3" />
+                      <div className="text-[8px] md:text-[9px] text-[#F95A56] tracking-[0.3em] uppercase mb-2 md:mb-3 flex items-center gap-2">
+                        <AlertTriangle className="w-2.5 md:w-3 h-2.5 md:h-3" />
                         Reported Issue
                       </div>
-                      <div className="text-[11px] text-white/80 bg-[#1a0f0f] border border-[#F95A56]/30 p-4 leading-relaxed relative">
+                      <div className="text-[10px] md:text-[11px] text-white/80 bg-[#1a0f0f] border border-[#F95A56]/30 p-3 md:p-4 leading-relaxed relative">
                         {data.issueMemo}
-                        <div className="absolute top-0 right-0 w-2 h-2 bg-[#F95A56] rounded-bl" />
+                        <div className="absolute top-0 right-0 w-1.5 md:w-2 h-1.5 md:h-2 bg-[#F95A56] rounded-bl" />
                       </div>
                     </div>
                   )}
 
                   {/* Call to Action */}
                   <button 
-                    className="w-full py-4 mt-2 bg-white text-black font-black tracking-[0.3em] text-[10px] hover:bg-white/90 transition-colors uppercase border-none cursor-pointer"
+                    className="w-full py-3 md:py-4 mt-1 md:mt-2 bg-white text-black font-black tracking-[0.2em] md:tracking-[0.3em] text-[8px] md:text-[10px] hover:bg-white/90 transition-colors uppercase border-none cursor-pointer"
                     onClick={() => router.push(`/feedback/${data.id}`)}
                   >
                     ENTER_FEEDBACK_TERMINAL
