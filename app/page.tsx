@@ -712,6 +712,7 @@ export default function BuildInLive() {
   const handlePointerDown = (e: React.PointerEvent) => {
     isDragging.current = true;
     lastMousePos.current = { x: e.clientX, y: e.clientY };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -722,8 +723,9 @@ export default function BuildInLive() {
     lastMousePos.current = { x: e.clientX, y: e.clientY };
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e: React.PointerEvent) => {
     isDragging.current = false;
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -941,7 +943,7 @@ export default function BuildInLive() {
 
       {/* Main Spatial Canvas */}
       <main 
-        className="w-screen h-screen overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing" 
+        className="w-screen h-screen overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing touch-none" 
         style={{ 
           perspective: 1200,
           maskImage: 'radial-gradient(ellipse at center, rgba(0,0,0,1) 15%, rgba(0,0,0,0.4) 55%, rgba(0,0,0,0) 85%)',
@@ -951,6 +953,7 @@ export default function BuildInLive() {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        onPointerCancel={handlePointerUp}
         onWheel={handleWheel}
       >
         <div 
@@ -1188,11 +1191,11 @@ export default function BuildInLive() {
 
       {/* Node Analysis Overlay */}
       {showAnalysis && (
-        <div className="fixed top-20 md:top-32 right-4 md:right-12 w-32 md:w-48 p-0 bg-transparent pointer-events-none">
-          <div className="font-bold text-[8px] tracking-[0.4em] text-white/20 mb-6 uppercase border-b border-white/10 pb-2">
+        <div className="fixed top-16 md:top-32 right-4 md:right-12 w-32 md:w-48 p-0 bg-transparent pointer-events-none">
+          <div className="font-bold text-[8px] tracking-[0.4em] text-white/20 mb-2 md:mb-6 uppercase border-b border-white/10 pb-2">
             LIVE_ANALYSIS
           </div>
-          <div className="space-y-6">
+          <div className="space-y-2 md:space-y-6">
             <div className="flex justify-between items-end">
               <span className="text-[8px] text-white/30 uppercase tracking-widest">Studio Viewing</span>
               <span className="text-[10px] text-[#F95A56] font-mono font-bold">
