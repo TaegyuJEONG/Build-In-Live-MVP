@@ -1,14 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useStore } from "@/lib/store"
 import { db } from "@/lib/firebase"
 import { collection, addDoc, doc, setDoc, serverTimestamp } from "firebase/firestore"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Globe, FileText, HelpCircle, Check, Copy, AlertTriangle, Terminal, ChevronDown, ChevronUp } from "lucide-react"
 
 export default function OnboardingPage() {
   const { firebaseUser } = useStore()
+  const searchParams = useSearchParams()
+  const projectIdParam = searchParams.get('projectId')
+  
   const [step, setStep] = useState<number | 'report'>(1)
   const [loading, setLoading] = useState(false)
   const [issueMemo, setIssueMemo] = useState("")
@@ -22,6 +25,40 @@ export default function OnboardingPage() {
   const [copied, setCopied] = useState<string | null>(null)
   const [showNextConfig, setShowNextConfig] = useState(false)
   const router = useRouter()
+
+  // Initial setup based on URL params
+  useEffect(() => {
+    if (projectIdParam) {
+      setCreatedProjectId(projectIdParam);
+      setStep(2); // Jump directly to SDK step
+    }
+  }, [projectIdParam]);
+
+  // Load existing project if provided
+  useEffect(() => {
+    const targetId = projectIdParam || createdProjectId;
+    if (targetId && db) {
+      const fetchProject = async () => {
+        try {
+          const { getDoc, doc } = await import("firebase/firestore");
+          const docRef = doc(db!, "projects", targetId);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setFormData({
+              name: data.name || "",
+              url: data.url || "",
+              description: data.description || "",
+              guide: data.guide || ""
+            });
+          }
+        } catch (e) {
+          console.error("Error fetching project for onboarding:", e);
+        }
+      };
+      fetchProject();
+    }
+  }, [projectIdParam, createdProjectId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

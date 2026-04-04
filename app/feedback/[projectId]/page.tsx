@@ -316,14 +316,18 @@ function VerificationWrapper({
 
                 <button 
                   onClick={() => {
-                    if (!isVerified && !isOwner && !isTesting) {
-                      alert("Commenting is disabled until the project is verified by the owner.");
+                    if (!isVerified && !isTesting) {
+                      if (isOwner) {
+                        alert("Please click 'Activate Comments' to enable feedback for everyone.");
+                      } else {
+                        alert("Commenting is disabled until the project is verified by the owner.");
+                      }
                       return;
                     }
                     setIsAddingMode(!isAddingMode);
                   }}
-                  disabled={!isVerified && !isOwner && !isTesting}
-                  className={`flex items-center justify-center gap-2 text-[10px] font-black tracking-widest uppercase transition-all rounded-full hover:scale-105 active:scale-95 shadow-[0_4px_15_rgba(249,90,86,0.3)] ${isAddingMode ? 'bg-[#F95A56] text-white animate-pulse' : 'bg-[#F95A56] text-white hover:brightness-110'} ${isMobile ? 'w-9 h-9 p-0' : 'px-5 py-1.5'} ${(!isVerified && !isOwner && !isTesting) ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
+                  disabled={!isVerified && !isTesting}
+                  className={`flex items-center justify-center gap-2 text-[10px] font-black tracking-widest uppercase transition-all rounded-full hover:scale-105 active:scale-95 shadow-[0_4px_15_rgba(249,90,86,0.3)] ${isAddingMode ? 'bg-[#F95A56] text-white animate-pulse' : 'bg-[#F95A56] text-white hover:brightness-110'} ${isMobile ? 'w-9 h-9 p-0' : 'px-5 py-1.5'} ${(!isVerified && !isTesting) ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
                   title="Add Comment"
                 >
                   <MessageSquarePlus className={`${isMobile ? "w-4 h-4" : "w-3.5 h-3.5"} transition-transform duration-300 ${isAddingMode ? 'rotate-45' : ''}`} />
@@ -497,6 +501,28 @@ function VerificationWrapper({
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+          {/* Owner Activation Overlay */}
+          {isOwner && !isVerified && !isTesting && !isAddingMode && (
+            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[5000] animate-in fade-in slide-in-from-bottom-8 duration-500 w-[90%] md:w-auto">
+              <div className="bg-[#0a0a0a]/95 backdrop-blur-2xl border border-[#F95A56]/50 p-1 flex flex-col md:flex-row items-center gap-1 shadow-[0_20px_50px_rgba(249,90,86,0.2)] rounded-sm">
+                <div className="px-6 py-4 flex flex-col gap-1 text-center md:text-left">
+                  <div className="text-[10px] font-black tracking-[0.3em] text-[#F95A56] uppercase">Incomplete Registration</div>
+                  <div className="text-[9px] text-white/40 tracking-widest uppercase">Click the button to activate the SDK and start collecting feedback</div>
+                </div>
+                <button
+                  onClick={() => router.push(`/onboarding?projectId=${projectId}`)}
+                  className="w-full md:w-auto px-8 py-4 bg-[#F95A56] hover:brightness-110 text-white font-black text-[11px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                  {testState === 'reporting' ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Globe className="w-4 h-4" />
+                  )}
+                  ACTIVATE_COMMENTS_SDK
+                </button>
               </div>
             </div>
           )}
