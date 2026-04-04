@@ -197,213 +197,235 @@ export default function FeedbackTerminalPage() {
                   </div>
                 </div>
               </div>
-            ) : null}
-
-            {/* Dynamic Header */}
-            {(!isMobile || !isFeedOpen) && (
-              <header className="h-[42px] border-b border-white/10 bg-[#0a0a0a] flex items-center justify-between px-6 z-[1000]">
-                <div className="flex items-center gap-6">
-                  <button 
-                    onClick={() => router.push("/")}
-                    className="text-white/40 hover:text-white transition-colors"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                  
-                  {!isMobile && <HeaderStatus projectName={projectData.name} />}
-                </div>
-
-                <div className="flex items-center gap-2 md:gap-3">
-                  {!isTesting ? (
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(window.location.href);
-                        alert("Link copied to clipboard!");
-                      }}
-                      className={`flex items-center justify-center gap-2 bg-white text-black text-[10px] font-black tracking-widest uppercase hover:bg-white/90 hover:scale-105 active:scale-95 transition-all rounded-full shadow-[0_4px_12px_rgba(255,255,255,0.1)] ${isMobile ? 'w-9 h-9 p-0' : 'px-5 py-1.5'}`}
-                      title="Share Project"
-                    >
-                      <Share2 className={isMobile ? "w-4 h-4" : "w-3.5 h-3.5"} />
-                      {!isMobile && "Share"}
-                    </button>
-                  ) : (
-                    !isAddingMode && (
-                      <div className="flex items-center gap-4 animate-in fade-in slide-in-from-left-4 duration-700">
-                        <div className="bg-[#F95A56] text-white px-3 py-1 rounded-sm text-[9px] font-black uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(249,90,86,0.4)] flex items-center gap-2">
-                           <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                           Start here
-                        </div>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-[#F95A56] animate-bounce-x">
-                          <path d="M13 5L20 12L13 19M4 12H20" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </div>
-                    )
-                  )}
-
-                  <div className="w-[1px] h-3 bg-white/10" />
-
-                  <button 
-                    onClick={() => {
-                      setIsAddingMode(!isAddingMode);
-                    }}
-                    className={`flex items-center justify-center gap-2 text-[10px] font-black tracking-widest uppercase transition-all rounded-full hover:scale-105 active:scale-95 shadow-[0_4px_15_rgba(249,90,86,0.3)] ${isAddingMode ? 'bg-[#F95A56] text-white animate-pulse' : 'bg-[#F95A56] text-white hover:brightness-110'} ${isMobile ? 'w-9 h-9 p-0' : 'px-5 py-1.5'}`}
-                    title="Add Comment"
-                  >
-                    <MessageSquarePlus className={`${isMobile ? "w-4 h-4" : "w-3.5 h-3.5"} transition-transform duration-300 ${isAddingMode ? 'rotate-45' : ''}`} />
-                    {!isMobile && "Comments"}
-                  </button>
-
-                  {isMobile && (
-                    <>
-                      <div className="w-[1px] h-3 bg-white/10" />
+            ) : (
+              <>
+                {/* Dynamic Header */}
+                {(!isMobile || !isFeedOpen) && (
+                  <header className="h-[42px] border-b border-white/10 bg-[#0a0a0a] flex items-center justify-between px-6 z-[1000]">
+                    <div className="flex items-center gap-6">
                       <button 
-                        onClick={() => setIsFeedOpen(true)}
-                        className={`flex items-center justify-center w-9 h-9 rounded-full bg-white/10 text-white transition-all hover:bg-white/20 ${isFeedOpen ? 'bg-[#F95A56]' : ''}`}
+                        onClick={() => router.push("/")}
+                        className="text-white/40 hover:text-white transition-colors"
                       >
-                        <List className="w-4 h-4" />
+                        <ArrowLeft className="w-5 h-5" />
                       </button>
-                    </>
+                      
+                      {!isMobile && <HeaderStatus projectName={projectData.name} />}
+                    </div>
+
+                    <div className="flex items-center gap-2 md:gap-3">
+                      {!isTesting ? (
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(window.location.href);
+                            alert("Link copied to clipboard!");
+                          }}
+                          className={`flex items-center justify-center gap-2 bg-white text-black text-[10px] font-black tracking-widest uppercase hover:bg-white/90 hover:scale-105 active:scale-95 transition-all rounded-full shadow-[0_4px_12px_rgba(255,255,255,0.1)] ${isMobile ? 'w-9 h-9 p-0' : 'px-5 py-1.5'}`}
+                          title="Share Project"
+                        >
+                          <Share2 className={isMobile ? "w-4 h-4" : "w-3.5 h-3.5"} />
+                          {!isMobile && "Share"}
+                        </button>
+                      ) : (
+                        !isAddingMode && (
+                          <div className="flex items-center gap-4 animate-in fade-in slide-in-from-left-4 duration-700">
+                            <div className="text-[#F95A56] text-[12px] font-medium uppercase tracking-[0.4em] flex items-center">
+                               Start here
+                            </div>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-[#F95A56] animate-bounce-x">
+                              <path d="M13 5L20 12L13 19M4 12H20" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </div>
+                        )
+                      )}
+
+                      <div className="w-[1px] h-3 bg-white/10" />
+
+                      <button 
+                        onClick={() => {
+                          setIsAddingMode(!isAddingMode);
+                        }}
+                        className={`flex items-center justify-center gap-2 text-[10px] font-black tracking-widest uppercase transition-all rounded-full hover:scale-105 active:scale-95 shadow-[0_4px_15_rgba(249,90,86,0.3)] ${isAddingMode ? 'bg-[#F95A56] text-white animate-pulse' : 'bg-[#F95A56] text-white hover:brightness-110'} ${isMobile ? 'w-9 h-9 p-0' : 'px-5 py-1.5'}`}
+                        title="Add Comment"
+                      >
+                        <MessageSquarePlus className={`${isMobile ? "w-4 h-4" : "w-3.5 h-3.5"} transition-transform duration-300 ${isAddingMode ? 'rotate-45' : ''}`} />
+                        {!isMobile && "Comments"}
+                      </button>
+
+                      {isMobile && (
+                        <>
+                          <div className="w-[1px] h-3 bg-white/10" />
+                          <button 
+                            onClick={() => setIsFeedOpen(true)}
+                            className={`flex items-center justify-center w-9 h-9 rounded-full bg-white/10 text-white transition-all hover:bg-white/20 ${isFeedOpen ? 'bg-[#F95A56]' : ''}`}
+                          >
+                            <List className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                  </header>
+                )}
+
+                {/* Main Content Area */}
+                <div 
+                  className={`flex-1 relative bg-[#0a0a0a] flex transition-all ${isAddingMode ? 'bg-[#F95A56]/20' : ''}`}
+                  style={isAddingMode ? { cursor: `url("data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 32 32' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='16' cy='16' r='10' fill='%23F95A56' stroke='white' stroke-width='2'/%3E%3Cpath d='M16 26L16 30' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") 16 16, crosshair` } : {}}
+                >
+                  {/* Mobile Addition Hint */}
+                  {isMobile && isAddingMode && !isFeedOpen && (
+                    <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[2000] pointer-events-none w-full px-6 flex justify-center animate-in fade-in slide-in-from-top-4 duration-300">
+                      <div className="bg-[#F95A56] text-white px-6 py-3 rounded-full shadow-[0_8px_30px_rgba(249,90,86,0.4)] flex items-center gap-3 border border-white/20">
+                        <div className="w-2 h-2 rounded-full bg-white animate-ping" />
+                        <span className="text-[11px] font-black tracking-widest uppercase py-0.5">Tap anywhere to drop a marker</span>
+                      </div>
+                    </div>
                   )}
-                </div>
+                  <div className={`flex-1 flex transition-all relative m-1 overflow-hidden ${isAddingMode ? 'ring-[20px] ring-[#F95A56]/20' : 'ring-[10px] ring-[#F95A56]/5'} ${isMobile && isFeedOpen ? 'hidden' : 'flex'}`}>
+                    {/* Rotating Border Background - Always Visible */}
+                    <>
+                      <style jsx>{`
+                        @keyframes spin-slow {
+                          from { transform: rotate(0deg); }
+                          to { transform: rotate(360deg); }
+                        }
+                      `}</style>
+                      <div 
+                        className="absolute inset-[-150%] opacity-100"
+                        style={{
+                          background: 'conic-gradient(from 0deg, transparent 0deg, #F95A56 90deg, transparent 180deg, #F95A56 270deg, transparent 360deg)',
+                          animation: isAddingMode ? 'spin-slow 3s linear infinite' : 'spin-slow 10s linear infinite',
+                          zIndex: 0
+                        }}
+                      />
+                    </>
+                    
+                    {/* Internal Padding/Background to create the "border" look */}
+                    <div className={`flex-1 flex flex-col bg-black relative z-10 m-[6px] overflow-hidden`}>
+                      {/* The Hosted Project */}
+                      <iframe
+                        ref={iframeRef}
+                        src={projectData.url}
+                        className="flex-1 h-full border-none"
+                        title="Project Preview"
+                        style={isAddingMode ? { pointerEvents: 'auto' } : {}}
+                      />
+                    </div>
 
-              </header>
-            )}
+                    {/* The Collaborative Layers */}
+                    <div className="absolute inset-0 pointer-events-none">
+                      {!isMobile && <LiveCursors projectId={projectId} />}
+                    </div>
+                  </div>
 
-            {/* Main Content Area */}
-            <div 
-              className={`flex-1 relative bg-[#0a0a0a] flex transition-all ${isAddingMode ? 'bg-[#F95A56]/20' : ''}`}
-              style={isAddingMode ? { cursor: `url("data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 32 32' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='16' cy='16' r='10' fill='%23F95A56' stroke='white' stroke-width='2'/%3E%3Cpath d='M16 26L16 30' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") 16 16, crosshair` } : {}}
-            >
-              {/* Mobile Addition Hint */}
-              {isMobile && isAddingMode && !isFeedOpen && (
-                <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[2000] pointer-events-none w-full px-6 flex justify-center animate-in fade-in slide-in-from-top-4 duration-300">
-                  <div className="bg-[#F95A56] text-white px-6 py-3 rounded-full shadow-[0_8px_30px_rgba(249,90,86,0.4)] flex items-center gap-3 border border-white/20">
-                    <div className="w-2 h-2 rounded-full bg-white animate-ping" />
-                    <span className="text-[11px] font-black tracking-widest uppercase py-0.5">Tap anywhere to drop a marker</span>
+                  {/* Feed System - Covers full screen on mobile when open */}
+                  <div className={`${isMobile && isFeedOpen ? 'fixed inset-0 z-[2000] bg-[#131313] pointer-events-auto' : 'absolute inset-0 pointer-events-none'}`}>
+                     <FeedbackSystem 
+                        projectId={projectId} 
+                        iframeRef={iframeRef} 
+                        ownerId={projectData.ownerId}
+                        isAddingMode={isAddingMode}
+                        setIsAddingMode={setIsAddingMode}
+                        isFeedOpen={isFeedOpen}
+                        setIsFeedOpen={setIsFeedOpen}
+                      />
                   </div>
                 </div>
-              )}
-              <div className={`flex-1 flex transition-all relative border-2 ${isAddingMode ? 'border-[#F95A56] ring-4 ring-[#F95A56]/20' : 'border-[#F95A56]/30'} ${isMobile && isFeedOpen ? 'hidden' : 'flex'}`}>
-                {/* The Hosted Project */}
-                <iframe
-                  ref={iframeRef}
-                  src={projectData.url}
-                  className="flex-1 h-full border-none"
-                  title="Project Preview"
-                  style={isAddingMode ? { pointerEvents: 'auto' } : {}}
-                />
 
-                {/* The Collaborative Layers */}
-                <div className="absolute inset-0 pointer-events-none">
-                  {!isMobile && <LiveCursors projectId={projectId} />}
-                </div>
-              </div>
+                {/* Test Mode Overlay Panel */}
+                {isTesting && testState !== 'success' && (
+                  <div className="w-full bg-[#131313] border-t border-white/10 p-6 z-[3000] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] pb-8 md:pb-6">
+                    <div className="max-w-4xl mx-auto">
+                      {testState === 'idle' && (
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                          <div className="space-y-1 text-center md:text-left">
+                            <h3 className="text-white font-black tracking-widest uppercase text-sm">Integration Check</h3>
+                            <p className="text-[#F95A56] text-[10px] uppercase font-bold tracking-[0.2em]">
+                              Is the page rendering properly? Can you drop markers and add comments?
+                            </p>
+                          </div>
+                          <div className="flex gap-3 w-full md:w-auto">
+                            <button 
+                              onClick={handleReport}
+                              className="flex-1 md:flex-none px-6 py-3 border border-white/20 text-white/70 hover:text-white hover:bg-white/10 text-[10px] font-black tracking-widest uppercase transition-colors"
+                            >
+                              REPORT AN ISSUE
+                            </button>
+                            <button 
+                              onClick={() => setTestState('success')}
+                              className="flex-1 md:flex-none px-6 py-3 bg-[#F95A56] text-white hover:brightness-110 text-[10px] font-black tracking-widest uppercase transition-colors shadow-[0_0_15px_rgba(249,90,86,0.3)]"
+                            >
+                              WORKING WELL
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
-              {/* Feed System - Covers full screen on mobile when open */}
-              <div className={`${isMobile && isFeedOpen ? 'fixed inset-0 z-[2000] bg-[#131313] pointer-events-auto' : 'absolute inset-0 pointer-events-none'}`}>
-                 <FeedbackSystem 
-                    projectId={projectId} 
-                    iframeRef={iframeRef} 
-                    ownerId={projectData.ownerId}
-                    isAddingMode={isAddingMode}
-                    setIsAddingMode={setIsAddingMode}
-                    isFeedOpen={isFeedOpen}
-                    setIsFeedOpen={setIsFeedOpen}
-                  />
-              </div>
-            </div>
+                      {testState === 'input-issue' && (
+                        <form onSubmit={handleIssueSubmit} className="flex flex-col gap-4">
+                          <div className="space-y-1">
+                            <h3 className="text-white font-black tracking-widest uppercase text-sm">Report Issue</h3>
+                            <p className="text-[#F95A56] text-[10px] uppercase tracking-[0.2em]">
+                              Please describe the problem you encountered.
+                            </p>
+                          </div>
+                          <textarea
+                            required
+                            className="w-full bg-[#0a0a0a] border border-white/20 p-4 text-white text-[12px] focus:border-[#F95A56] focus:outline-none transition-colors min-h-[100px] resize-none"
+                            placeholder="What went wrong? e.g. 'I added the script but the cursor is not showing up...'"
+                            value={issueMemo}
+                            onChange={(e) => setIssueMemo(e.target.value)}
+                          />
+                          <div className="flex gap-3 justify-end">
+                            <button 
+                              type="button"
+                              onClick={() => setTestState('idle')}
+                              className="px-6 py-3 border border-white/20 text-white/70 hover:text-white hover:bg-white/10 text-[10px] font-black tracking-widest uppercase transition-colors"
+                            >
+                              CANCEL
+                            </button>
+                            <button 
+                              type="submit"
+                              disabled={!issueMemo.trim()}
+                              className="px-6 py-3 bg-[#F95A56] text-white hover:brightness-110 disabled:opacity-50 text-[10px] font-black tracking-widest uppercase transition-colors shadow-[0_0_15px_rgba(249,90,86,0.3)]"
+                            >
+                              SUBMIT & RETURN TO DASHBOARD
+                            </button>
+                          </div>
+                        </form>
+                      )}
 
-            {/* Test Mode Overlay Panel */}
-            {isTesting && testState !== 'success' && (
-              <div className="fixed bottom-0 left-0 w-full bg-[#131313] border-t border-white/10 p-6 z-[3000] shadow-[0_-10px_40px_rgba(0,0,0,0.8)] pb-8 md:pb-6">
-                <div className="max-w-4xl mx-auto">
-                  {testState === 'idle' && (
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                      <div className="space-y-1 text-center md:text-left">
-                        <h3 className="text-white font-black tracking-widest uppercase text-sm">Integration Check</h3>
-                        <p className="text-[#F95A56] text-[10px] uppercase font-bold tracking-[0.2em]">
-                          Is the page rendering properly? Can you drop markers and add comments?
-                        </p>
-                      </div>
-                      <div className="flex gap-3 w-full md:w-auto">
-                        <button 
-                          onClick={handleReport}
-                          className="flex-1 md:flex-none px-6 py-3 border border-white/20 text-white/70 hover:text-white hover:bg-white/10 text-[10px] font-black tracking-widest uppercase transition-colors"
-                        >
-                          REPORT AN ISSUE
-                        </button>
-                        <button 
-                          onClick={() => setTestState('success')}
-                          className="flex-1 md:flex-none px-6 py-3 bg-[#F95A56] text-white hover:brightness-110 text-[10px] font-black tracking-widest uppercase transition-colors shadow-[0_0_15px_rgba(249,90,86,0.3)]"
-                        >
-                          WORKING WELL
-                        </button>
-                      </div>
+                      {testState === 'reporting' && (
+                        <div className="flex items-center justify-center p-4">
+                          <Loader2 className="w-6 h-6 text-[#F95A56] animate-spin" />
+                          <span className="ml-3 text-white text-[10px] uppercase tracking-widest">SENDING REPORT...</span>
+                        </div>
+                      )}
+
+                      {testState === 'reported' && (
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                          <div className="space-y-1 text-center md:text-left">
+                            <h3 className="text-white font-black tracking-widest uppercase text-sm flex items-center justify-center md:justify-start gap-2">
+                              <Check className="w-5 h-5 text-green-500" />
+                              REPORT SUBMITTED
+                            </h3>
+                            <p className="text-white/50 text-[10px] uppercase tracking-[0.2em]">
+                              We've received your issue. You can explore the dashboard while we look into it.
+                            </p>
+                          </div>
+                          <button 
+                            onClick={() => router.push('/')}
+                            className="w-full md:w-auto px-8 py-3 bg-white text-black hover:bg-white/90 text-[10px] font-black tracking-widest uppercase transition-colors"
+                          >
+                            EXPLORE DASHBOARD →
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
-
-                  {testState === 'input-issue' && (
-                    <form onSubmit={handleIssueSubmit} className="flex flex-col gap-4">
-                      <div className="space-y-1">
-                        <h3 className="text-white font-black tracking-widest uppercase text-sm">Report Issue</h3>
-                        <p className="text-[#F95A56] text-[10px] uppercase tracking-[0.2em]">
-                          Please describe the problem you encountered.
-                        </p>
-                      </div>
-                      <textarea
-                        required
-                        className="w-full bg-[#0a0a0a] border border-white/20 p-4 text-white text-[12px] focus:border-[#F95A56] focus:outline-none transition-colors min-h-[100px] resize-none"
-                        placeholder="What went wrong? e.g. 'I added the script but the cursor is not showing up...'"
-                        value={issueMemo}
-                        onChange={(e) => setIssueMemo(e.target.value)}
-                      />
-                      <div className="flex gap-3 justify-end">
-                        <button 
-                          type="button"
-                          onClick={() => setTestState('idle')}
-                          className="px-6 py-3 border border-white/20 text-white/70 hover:text-white hover:bg-white/10 text-[10px] font-black tracking-widest uppercase transition-colors"
-                        >
-                          CANCEL
-                        </button>
-                        <button 
-                          type="submit"
-                          disabled={!issueMemo.trim()}
-                          className="px-6 py-3 bg-[#F95A56] text-white hover:brightness-110 disabled:opacity-50 text-[10px] font-black tracking-widest uppercase transition-colors shadow-[0_0_15px_rgba(249,90,86,0.3)]"
-                        >
-                          SUBMIT & RETURN TO DASHBOARD
-                        </button>
-                      </div>
-                    </form>
-                  )}
-
-                  {testState === 'reporting' && (
-                    <div className="flex items-center justify-center p-4">
-                      <Loader2 className="w-6 h-6 text-[#F95A56] animate-spin" />
-                      <span className="ml-3 text-white text-[10px] uppercase tracking-widest">SENDING REPORT...</span>
-                    </div>
-                  )}
-
-                  {testState === 'reported' && (
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                      <div className="space-y-1 text-center md:text-left">
-                        <h3 className="text-white font-black tracking-widest uppercase text-sm flex items-center justify-center md:justify-start gap-2">
-                          <Check className="w-5 h-5 text-green-500" />
-                          REPORT SUBMITTED
-                        </h3>
-                        <p className="text-white/50 text-[10px] uppercase tracking-[0.2em]">
-                          We've received your issue. You can explore the dashboard while we look into it.
-                        </p>
-                      </div>
-                      <button 
-                        onClick={() => router.push('/')}
-                        className="w-full md:w-auto px-8 py-3 bg-white text-black hover:bg-white/90 text-[10px] font-black tracking-widest uppercase transition-colors"
-                      >
-                        EXPLORE DASHBOARD →
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

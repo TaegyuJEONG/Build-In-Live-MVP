@@ -1,6 +1,6 @@
 "use client"
 
-import { Radio, Terminal, Cpu, Plus, Minus, Layers, Grid3x3, BarChart3, Settings, Focus, AlertTriangle } from "lucide-react"
+import { Radio, Terminal, Cpu, Plus, Minus, Layers, SquarePlus, BarChart3, Settings, Focus, AlertTriangle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/BottomNav"
 import React, { useEffect, useState, useRef, useMemo } from "react"
@@ -642,6 +642,9 @@ export default function BuildInLive() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(true);
   
   React.useEffect(() => {
     setMounted(true)
@@ -787,11 +790,17 @@ export default function BuildInLive() {
           BUILD_IN_LIVE
         </div>
         <div className="flex gap-2 relative">
-          <button className="hover:bg-white/5 p-2 transition-colors">
-            <Grid3x3 className="w-[18px] h-[18px] text-white/40" />
+          <button 
+            className="hover:bg-white/5 p-2 transition-colors"
+            onClick={() => router.push('/onboarding')}
+          >
+            <SquarePlus className="w-[18px] h-[18px] text-white/40" />
           </button>
-          <button className="hover:bg-white/5 p-2 transition-colors">
-            <BarChart3 className="w-[18px] h-[18px] text-white/40" />
+          <button 
+            className="p-2 transition-all hover:bg-white/5"
+            onClick={() => setShowAnalysis(!showAnalysis)}
+          >
+            <BarChart3 className={`w-[18px] h-[18px] transition-opacity ${showAnalysis ? 'text-white/40' : 'text-white/10'}`} />
           </button>
           <div className="relative">
             <button 
@@ -1064,27 +1073,29 @@ export default function BuildInLive() {
 
 
       {/* Node Analysis Overlay */}
-      <div className="fixed top-32 right-12 w-48 p-0 bg-transparent pointer-events-none">
-        <div className="font-bold text-[8px] tracking-[0.4em] text-white/20 mb-6 uppercase border-b border-white/10 pb-2">
-          LIVE_ANALYSIS
+      {showAnalysis && (
+        <div className="fixed top-32 right-12 w-48 p-0 bg-transparent pointer-events-none">
+          <div className="font-bold text-[8px] tracking-[0.4em] text-white/20 mb-6 uppercase border-b border-white/10 pb-2">
+            LIVE_ANALYSIS
+          </div>
+          <div className="space-y-6">
+            <div className="flex justify-between items-end">
+              <span className="text-[8px] text-white/30 uppercase tracking-widest">Studio Viewing</span>
+              <span className="text-[10px] text-[#F95A56] font-mono font-bold">{(users?.length || 0) + 1}</span>
+            </div>
+            <div className="flex justify-between items-end">
+              <span className="text-[8px] text-white/30 uppercase tracking-widest">Active Desks</span>
+              <span className="text-[10px] text-white/60 font-mono">{projects.length}</span>
+            </div>
+            <div className="flex justify-between items-end">
+              <span className="text-[8px] text-white/30 uppercase tracking-widest">Total Feedback</span>
+              <span className="text-[10px] text-white/60 font-mono">
+                {projects.reduce((acc, p) => acc + (Number(p.feedbackCount) || 0), 0)}
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="space-y-6">
-          <div className="flex justify-between items-end">
-            <span className="text-[8px] text-white/30 uppercase tracking-widest">Studio Viewing</span>
-            <span className="text-[10px] text-[#F95A56] font-mono font-bold">{(users?.length || 0) + 1}</span>
-          </div>
-          <div className="flex justify-between items-end">
-            <span className="text-[8px] text-white/30 uppercase tracking-widest">Active Desks</span>
-            <span className="text-[10px] text-white/60 font-mono">{projects.length}</span>
-          </div>
-          <div className="flex justify-between items-end">
-            <span className="text-[8px] text-white/30 uppercase tracking-widest">Total Feedback</span>
-            <span className="text-[10px] text-white/60 font-mono">
-              {projects.reduce((acc, p) => acc + (Number(p.feedbackCount) || 0), 0)}
-            </span>
-          </div>
-        </div>
-      </div>
+      )}
       {/* Delete Account Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -1104,46 +1115,79 @@ export default function BuildInLive() {
               <button 
                 onClick={async () => {
                   try {
+                    setIsDeleting(true);
+                    setDeleteError(null);
                     const { auth, db } = await import("@/lib/firebase");
                     const user = auth?.currentUser;
-                    if (user && db) {
-                      const { doc, deleteDoc, collection, query, where, getDocs, writeBatch } = await import("firebase/firestore");
-                      
-                      // 1. Delete all user-owned projects
-                      const projectsRef = collection(db, "projects");
-                      const q = query(projectsRef, where("ownerId", "==", user.uid));
-                      const projectSnapshots = await getDocs(q);
-                      
-                      const batch = writeBatch(db);
-                      projectSnapshots.forEach((pDoc) => {
-                        batch.delete(pDoc.ref);
-                      });
-                      await batch.commit();
+                    
+                    if (!user || !db) throw new Error("Authentication failed");
 
-                      // 2. Delete user document from Firestore
-                      await deleteDoc(doc(db, "users", user.uid));
-                      
-                      // 3. Delete user account from Firebase Auth
+                    const { doc, deleteDoc, collection, query, where, getDocs, writeBatch } = await import("firebase/firestore");
+                    
+                    // 1. First, TRY to delete the user account to check for "requires-recent-login"
+                    // Note: This will fail if they haven't logged in recently.
+                    try {
                       await user.delete();
-                      router.push("/auth");
+                    } catch (error: any) {
+                      if (error.code === 'auth/requires-recent-login') {
+                        setDeleteError("Recent login required. Logging you out for re-authentication...");
+                        setTimeout(async () => {
+                          await auth.signOut();
+                          router.push("/auth");
+                        }, 2000);
+                        return;
+                      }
+                      throw error;
                     }
+
+                    // 2. If account deletion succeeded, clean up projects and data
+                    // Note: We might need admin privileges or a Cloud Function to clean up after user is deleted,
+                    // but for this MVP, we take the risk of orphans or attempt cleanup before (if rules allow).
+                    // Actually, if we delete user first, they lose Firestore permissions.
+                    // Let's do it in a way that minimizes risk.
+                    
+                    // Cleanup Projects
+                    const projectsRef = collection(db, "projects");
+                    const q = query(projectsRef, where("ownerId", "==", user.uid));
+                    const projectSnapshots = await getDocs(q);
+                    
+                    const batch = writeBatch(db);
+                    projectSnapshots.forEach((pDoc) => {
+                      batch.delete(pDoc.ref);
+                    });
+                    await batch.commit();
+
+                    // Cleanup User Doc
+                    await deleteDoc(doc(db, "users", user.uid));
+                    
+                    router.push("/auth");
                   } catch (error: any) {
                     console.error("Deletion failed:", error);
-                    if (error.code === 'auth/requires-recent-login') {
-                      alert("Please log in again to continue. (Recent login session required)");
-                    }
+                    setDeleteError(error.message || "Deletion failed. Please try again.");
+                  } finally {
+                    setIsDeleting(false);
                   }
                 }}
-                className="w-full py-4 bg-[#F95A56] text-white font-black tracking-[0.3em] text-[10px] hover:brightness-110 transition-all uppercase"
+                className={`w-full py-4 bg-[#F95A56] text-white font-black tracking-[0.3em] text-[10px] transition-all uppercase ${isDeleting ? 'opacity-50 cursor-wait' : 'hover:brightness-110'}`}
+                disabled={isDeleting}
               >
-                CONFIRM_PERMANENT_DELETION
+                {isDeleting ? 'PROCESSING_DELETION...' : 'CONFIRM_PERMANENT_DELETION'}
               </button>
               <button 
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteError(null);
+                }}
                 className="w-full py-4 bg-transparent border border-white/10 text-white font-black tracking-[0.3em] text-[10px] hover:bg-white/5 transition-all uppercase"
               >
                 CANCEL
               </button>
+              
+              {deleteError && (
+                <div className="mt-4 p-4 bg-[#F95A56]/10 border border-[#F95A56]/30 text-[#F95A56] text-[10px] font-bold uppercase tracking-wider text-center">
+                  {deleteError}
+                </div>
+              )}
             </div>
           </div>
         </div>
