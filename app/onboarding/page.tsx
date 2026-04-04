@@ -76,11 +76,16 @@ async headers() {
         {
           key: 'Content-Security-Policy',
           value: "frame-ancestors 'self' https://build-in-live-mvp.vercel.app http://localhost:3000;",
-        },
-      ],
-    },
-  ]
-},`
+  const aiPrompt = `I want to integrate the 'Build In Live' feedback SDK into my project. Please perform the following:
+
+1. Add this script tag to the body of the application (e.g., in layout.tsx or index.html), ensuring it has the 'async' attribute:
+<script src="https://build-in-live-mvp.vercel.app/sdk.js" data-project-id="${createdProjectId}" async></script>
+
+2. Configure the site to allow being embedded in an iframe from "https://build-in-live-mvp.vercel.app" and "http://localhost:3000".
+   - For Next.js: Update next.config.js with X-Frame-Options: ALLOWALL and frame-ancestors CSP headers.
+   - For others: Ensure equivalent headers are set in the server or meta tags.
+
+Please update the relevant files in my project to apply these changes.`
 
   const feedbackUrl = `https://build-in-live-mvp.vercel.app/feedback/${createdProjectId}`
 
@@ -88,24 +93,11 @@ async headers() {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-mono">
         <div className="w-full max-w-2xl space-y-4">
-
-          {/* Header */}
-          <div className="bg-[#131313] border border-green-500/30 p-6 flex items-center gap-4">
-            <div className="w-10 h-10 bg-green-500/20 border border-green-500 flex items-center justify-center text-green-500 shrink-0">
-              <Check className="w-6 h-6" />
+          <div className="bg-[#131313] border border-green-500/30 p-8 flex items-center gap-4">
+            <div className="w-12 h-12 bg-green-500/10 border border-green-500 flex items-center justify-center text-green-500 shrink-0">
+              <Check className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tighter text-white uppercase">PROJECT_CREATED</h1>
-              <p className="text-[10px] tracking-widest text-white/40 uppercase mt-0.5">2 steps required to activate live sync</p>
-            </div>
-          </div>
-
-          {/* Step 1: SDK Script */}
-          <div className="bg-[#131313] border border-white/10 p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-[#F95A56] flex items-center justify-center text-white text-[10px] font-black shrink-0">1</div>
-              <div className="text-[10px] text-white/60 tracking-widest uppercase">Embed SDK Script in Your Website</div>
-            </div>
 
             <div className="bg-[#F95A56]/10 border border-[#F95A56]/40 p-3 flex items-start gap-3">
               <AlertTriangle className="w-4 h-4 text-[#F95A56] shrink-0 mt-0.5" />
