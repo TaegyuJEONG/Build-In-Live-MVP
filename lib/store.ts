@@ -60,6 +60,7 @@ export type Project = {
   scriptSkipped?: boolean;
   hasIssue?: boolean;
   issueMemo?: string;
+  isVerified?: boolean;
 };
 
 interface AppState {
@@ -81,6 +82,10 @@ interface AppState {
   
   // Initialization
   init: () => void;
+  
+  // Project Management
+  deleteProject: (projectId: string) => Promise<void>;
+  updateProject: (projectId: string, data: Partial<Project>) => Promise<void>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -239,5 +244,17 @@ export const useStore = create<AppState>((set, get) => ({
     const currentDb = db;
     if (project === 'home' || !currentDb) return;
     await deleteDoc(doc(currentDb, `projects/${project}/markers`, markerId));
+  },
+
+  deleteProject: async (projectId: string) => {
+    const currentDb = db;
+    if (!currentDb) return;
+    await deleteDoc(doc(currentDb, 'projects', projectId));
+  },
+
+  updateProject: async (projectId: string, data: Partial<Project>) => {
+    const currentDb = db;
+    if (!currentDb) return;
+    await updateDoc(doc(currentDb, 'projects', projectId), data);
   }
 }));

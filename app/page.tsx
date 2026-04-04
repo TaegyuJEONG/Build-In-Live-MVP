@@ -1,6 +1,6 @@
 "use client"
 
-import { Radio, Terminal, Cpu, Plus, Minus, Layers, SquarePlus, BarChart3, Settings, Focus, AlertTriangle } from "lucide-react"
+import { Radio, Terminal, Cpu, Plus, Minus, Layers, SquarePlus, BarChart3, Settings, Focus, AlertTriangle, Trash2, PenSquare } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/BottomNav"
 import React, { useEffect, useState, useRef, useMemo } from "react"
@@ -645,6 +645,10 @@ export default function BuildInLive() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(true);
+  const [showProjectDeleteConfirm, setShowProjectDeleteConfirm] = useState(false);
+  const [isEditingProject, setIsEditingProject] = useState(false);
+  const [editedData, setEditedData] = useState({ name: '', url: '', description: '' });
+  const { deleteProject, updateProject } = useStore();
   
   React.useEffect(() => {
     setMounted(true)
@@ -685,7 +689,8 @@ export default function BuildInLive() {
         r: pos.r,
         ring: Math.max(Math.abs(pos.q), Math.abs(pos.r), Math.abs(pos.q + pos.r)),
         delay: (i + 1) * 0.1,
-        type: (p.scriptSkipped || p.hasIssue) ? undefined : '?',
+        // Show '?' only if verified and no issue
+        type: (p.isVerified && !p.hasIssue) ? '?' : null,
         logo: undefined,
         visitors: p.feedbackCount * 10, // Mocked visitor intensity based on feedback
         isAutoCommitting: true,
@@ -749,8 +754,34 @@ export default function BuildInLive() {
       url: p.url,
       hasIssue: p.hasIssue,
       issueMemo: p.issueMemo,
-      description: p.description
+      description: p.description,
+      isOwner: cube.isOwner
     };
+  };
+
+  const handleProjectDelete = async () => {
+    if (!selectedCube?.id) return;
+    try {
+      await deleteProject(selectedCube.id);
+      setSelectedCube(null);
+      setShowProjectDeleteConfirm(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleProjectUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCube?.id) return;
+    try {
+      await updateProject(selectedCube.id, editedData);
+      setIsEditingProject(false);
+      // Update selectedCube local data for immediate feedback if needed, 
+      // but the real-time project listener in store will update the grid and panel.
+      setSelectedCube({ ...selectedCube, projectData: { ...selectedCube.projectData, ...editedData } });
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   if (!mounted) return null;
@@ -983,85 +1014,163 @@ export default function BuildInLive() {
               <div className="text-[10px] font-black tracking-[0.2em] text-white">
                 STATUS // {data.name}
               </div>
-              <button 
-                className="text-white/50 hover:text-white transition-colors p-1 cursor-pointer"
-                onClick={() => setSelectedCube(null)}
-              >
-                <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                  <path d="M1 1L13 13M1 13L13 1" stroke="currentColor" strokeWidth="1.5"/>
-                </svg>
-              </button>
+              <div className="flex items-center gap-1">
+                {data.isOwner && !isEditingProject && (
+                  <>
+                    <button 
+                      className="text-white/30 hover:text-white transition-colors p-2 cursor-pointer"
+                      onClick={() => {
+                        setEditedData({
+                          name: selectedCube.projectData.name,
+                          url: selectedCube.projectData.url,
+                          description: selectedCube.projectData.description || ''
+                        });
+                        setIsEditingProject(true);
+                      }}
+                      title="Edit Project"
+                    >
+                      <PenSquare className="w-3.5 h-3.5" />
+                    </button>
+                    <button 
+                      className="text-white/30 hover:text-[#F95A56] transition-colors p-2 cursor-pointer"
+                      onClick={() => setShowProjectDeleteConfirm(true)}
+                      title="Delete Project"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                    <div className="w-[1px] h-3 bg-white/10 mx-1" />
+                  </>
+                )}
+                <button 
+                  className="text-white/50 hover:text-white transition-colors p-2 cursor-pointer"
+                  onClick={() => {
+                    setSelectedCube(null);
+                    setIsEditingProject(false);
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                    <path d="M1 1L13 13M1 13L13 1" stroke="currentColor" strokeWidth="1.5"/>
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* Body */}
-            <div className="p-6 flex flex-col gap-6">
-              {/* Description */}
-              {data.description && (
-                <div>
-                  <div className="text-[9px] text-white/40 tracking-[0.3em] uppercase mb-3">Project Description</div>
-                  <div className="text-[11px] leading-relaxed text-white/80 opacity-90">
-                    {data.description}
+            <div className="p-6 flex flex-col gap-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
+              {isEditingProject ? (
+                <form onSubmit={handleProjectUpdate} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[9px] text-white/40 tracking-[0.3em] uppercase block">Project Name</label>
+                    <input
+                      required
+                      className="w-full bg-transparent border-b border-white/20 py-2 text-white text-xs focus:border-white focus:outline-none transition-colors"
+                      value={editedData.name}
+                      onChange={(e) => setEditedData({ ...editedData, name: e.target.value })}
+                    />
                   </div>
-                </div>
-              )}
+                  <div className="space-y-2">
+                    <label className="text-[9px] text-white/40 tracking-[0.3em] uppercase block">URL</label>
+                    <input
+                      required
+                      className="w-full bg-transparent border-b border-white/20 py-2 text-white text-xs focus:border-white focus:outline-none transition-colors"
+                      value={editedData.url}
+                      onChange={(e) => setEditedData({ ...editedData, url: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] text-white/40 tracking-[0.3em] uppercase block">Description</label>
+                    <textarea
+                      className="w-full bg-transparent border border-white/20 p-2 text-white text-xs focus:border-white focus:outline-none transition-colors min-h-[100px] resize-none"
+                      value={editedData.description}
+                      onChange={(e) => setEditedData({ ...editedData, description: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="submit"
+                      className="flex-1 py-3 bg-white text-black font-black tracking-[0.2em] text-[9px] hover:bg-white/90 transition-colors uppercase cursor-pointer"
+                    >
+                      SAVE_CHANGES
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingProject(false)}
+                      className="flex-1 py-3 bg-transparent border border-white/10 text-white font-black tracking-[0.2em] text-[9px] hover:bg-white/5 transition-colors uppercase cursor-pointer"
+                    >
+                      CANCEL
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  {/* Description */}
+                  {data.description && (
+                    <div>
+                      <div className="text-[9px] text-white/40 tracking-[0.3em] uppercase mb-3">Project Description</div>
+                      <div className="text-[11px] leading-relaxed text-white/80 opacity-90">
+                        {data.description}
+                      </div>
+                    </div>
+                  )}
 
-              {/* URL */}
-              <div>
-                <div className="text-[9px] text-white/40 tracking-[0.3em] uppercase mb-3">Live Environment</div>
-                <div className="text-[11px] text-white/80 font-mono break-all bg-white/5 p-2 border border-white/10">
-                  {data.url}
-                </div>
-              </div>
-
-              {/* Metrics Grid */}
-              <div className="grid grid-cols-2 gap-px bg-white/10 border border-white/10">
-                <RoomProvider 
-                  id={data.id} 
-                  initialPresence={{ cursor: null, name: "Anonymous", color: "#F95A56", pathname: "" }}
-                  initialStorage={{ markers: new LiveList([]), comments: new LiveMap() }}
-                >
-                  <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
-                    <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Feedback Count</div>
-                    <div className="text-xl font-mono text-white flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                      <ClientSideSuspense fallback={<>{data.feedbacks}</>}>
-                        {() => <LiveFeedbackCountReader fallback={data.feedbacks} />}
-                      </ClientSideSuspense>
+                  {/* URL */}
+                  <div>
+                    <div className="text-[9px] text-white/40 tracking-[0.3em] uppercase mb-3">Live Environment</div>
+                    <div className="text-[11px] text-white/80 font-mono break-all bg-white/5 p-2 border border-white/10">
+                      {data.url}
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
-                    <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Viewing</div>
-                    <div className="text-xl font-mono text-white/90 px-1 flex items-center gap-2">
-                      <ClientSideSuspense fallback={<>{data.visitors}</>}>
-                        {() => <LiveVisitorCountReader fallback={data.visitors} />}
-                      </ClientSideSuspense>
+
+                  {/* Metrics Grid */}
+                  <div className="grid grid-cols-2 gap-px bg-white/10 border border-white/10">
+                    <RoomProvider 
+                      id={data.id} 
+                      initialPresence={{ cursor: null, name: "Anonymous", color: "#F95A56", pathname: "" }}
+                      initialStorage={{ markers: new LiveList([]), comments: new LiveMap() }}
+                    >
+                      <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
+                        <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Feedback Count</div>
+                        <div className="text-xl font-mono text-white flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                          <ClientSideSuspense fallback={<>{data.feedbacks}</>}>
+                            {() => <LiveFeedbackCountReader fallback={data.feedbacks} />}
+                          </ClientSideSuspense>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
+                        <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Viewing</div>
+                        <div className="text-xl font-mono text-white/90 px-1 flex items-center gap-2">
+                          <ClientSideSuspense fallback={<>{data.visitors}</>}>
+                            {() => <LiveVisitorCountReader fallback={data.visitors} />}
+                          </ClientSideSuspense>
+                        </div>
+                      </div>
+                    </RoomProvider>
+                  </div>
+
+                  {/* Issue Memo */}
+                  {data.hasIssue && data.issueMemo && (
+                    <div>
+                      <div className="text-[9px] text-[#F95A56] tracking-[0.3em] uppercase mb-3 flex items-center gap-2">
+                        <AlertTriangle className="w-3 h-3" />
+                        Reported Issue
+                      </div>
+                      <div className="text-[11px] text-white/80 bg-[#1a0f0f] border border-[#F95A56]/30 p-4 leading-relaxed relative">
+                        {data.issueMemo}
+                        <div className="absolute top-0 right-0 w-2 h-2 bg-[#F95A56] rounded-bl" />
+                      </div>
                     </div>
-                  </div>
-                </RoomProvider>
-              </div>
+                  )}
 
-              {/* Issue Memo */}
-              {data.hasIssue && data.issueMemo && (
-                <div>
-                  <div className="text-[9px] text-[#F95A56] tracking-[0.3em] uppercase mb-3 flex items-center gap-2">
-                    <AlertTriangle className="w-3 h-3" />
-                    Reported Issue
-                  </div>
-                  <div className="text-[11px] text-white/80 bg-[#1a0f0f] border border-[#F95A56]/30 p-4 leading-relaxed relative">
-                    {data.issueMemo}
-                    <div className="absolute top-0 right-0 w-2 h-2 bg-[#F95A56] rounded-bl" />
-                  </div>
-                </div>
+                  {/* Call to Action */}
+                  <button 
+                    className="w-full py-4 mt-2 bg-white text-black font-black tracking-[0.3em] text-[10px] hover:bg-white/90 transition-colors uppercase border-none cursor-pointer"
+                    onClick={() => router.push(`/feedback/${data.id}`)}
+                  >
+                    ENTER_FEEDBACK_TERMINAL
+                  </button>
+                </>
               )}
-
-              {/* Call to Action */}
-              <button 
-                className="w-full py-4 mt-1 bg-white text-black font-black tracking-[0.3em] text-[10px] hover:bg-white/90 transition-colors uppercase border-none cursor-pointer"
-                onClick={() => router.push(`/feedback/${data.id}`)}
-              >
-                ENTER_FEEDBACK_TERMINAL
-              </button>
-
             </div>
           </div>
         );
@@ -1146,6 +1255,8 @@ export default function BuildInLive() {
                     // Actually, if we delete user first, they lose Firestore permissions.
                     // Let's do it in a way that minimizes risk.
                     
+
+                    
                     // Cleanup Projects
                     const projectsRef = collection(db, "projects");
                     const q = query(projectsRef, where("ownerId", "==", user.uid));
@@ -1188,6 +1299,39 @@ export default function BuildInLive() {
                   {deleteError}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Project Delete Confirmation Modal */}
+      {showProjectDeleteConfirm && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-[#0a0a0a] border border-[#F95A56]/30 shadow-2xl p-8 space-y-6">
+            <div className="space-y-4 text-center">
+              <div className="w-12 h-12 bg-[#F95A56]/10 border border-[#F95A56]/30 mx-auto flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-[#F95A56]" />
+              </div>
+              <h2 className="text-xl font-black text-white uppercase tracking-tighter">DELETE_PROJECT</h2>
+              <p className="text-[11px] text-white/50 leading-relaxed uppercase tracking-wider">
+                Are you sure you want to delete this project?<br/>
+                All feedback and markers will be permanently removed.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <button 
+                onClick={handleProjectDelete}
+                className="w-full py-4 bg-[#F95A56] text-white font-black tracking-[0.3em] text-[10px] hover:brightness-110 transition-all uppercase"
+              >
+                CONFIRM_DELETE
+              </button>
+              <button 
+                onClick={() => setShowProjectDeleteConfirm(false)}
+                className="w-full py-4 bg-transparent border border-white/10 text-white font-black tracking-[0.3em] text-[10px] hover:bg-white/5 transition-all uppercase"
+              >
+                CANCEL
+              </button>
             </div>
           </div>
         </div>

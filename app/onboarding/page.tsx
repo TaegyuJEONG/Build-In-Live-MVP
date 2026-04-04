@@ -41,7 +41,8 @@ export default function OnboardingPage() {
         description: formData.description,
         guide: formData.guide,
         createdAt: serverTimestamp(),
-        feedbackCount: 0
+        feedbackCount: 0,
+        isVerified: false
       })
 
       await setDoc(doc(currentDb, "users", firebaseUser.uid), {
