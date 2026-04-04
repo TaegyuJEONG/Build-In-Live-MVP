@@ -1,14 +1,15 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { RoomProvider } from "@/liveblocks.config"
 import { ClientSideSuspense } from "@liveblocks/react"
 import { LiveCursors } from "@/components/LiveCursors"
 import { FeedbackSystem } from "@/components/FeedbackSystem"
-import { db } from "@/lib/firebase"
-import { doc, getDoc } from "firebase/firestore"
-import { Loader2, ArrowLeft, Globe, Share2, List, MessageSquarePlus, ChevronLeft, ChevronRight } from "lucide-react"
+import { db, rtdb } from "@/lib/firebase"
+import { doc, getDoc, setDoc } from "firebase/firestore"
+import { ref, set as setRTDB, onDisconnect, remove } from "firebase/database"
+import { Loader2, ArrowLeft, Globe, Share2, List, MessageSquarePlus, ChevronLeft, ChevronRight, Check } from "lucide-react"
 import { LiveList, LiveMap } from "@liveblocks/client"
 
 export default function FeedbackTerminalPage() {
@@ -21,12 +22,67 @@ export default function FeedbackTerminalPage() {
   const [isMobile, setIsMobile] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isTesting = searchParams.get('testing') === 'true'
+  const [testState, setTestState] = useState<'idle' | 'input-issue' | 'reporting' | 'reported' | 'success'>('idle')
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [issueMemo, setIssueMemo] = useState("")
+
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 2000)
+  }
+
+  const handleReport = () => {
+    setTestState('input-issue')
+  }
+
+  const handleIssueSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!issueMemo.trim()) return;
+    
+    setTestState('reporting')
+    try {
+      const currentDb = db;
+      if (currentDb) {
+        await setDoc(doc(currentDb, "projects", projectId), {
+          hasIssue: true,
+          issueMemo: issueMemo
+        }, { merge: true })
+      }
+      
+      // Auto redirect to dashboard
+      router.push('/')
+    } catch (e) {
+      console.error(e)
+      setTestState('input-issue')
+    }
+  }
 
   useEffect(() => {
     setMounted(true);
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
+
+    // Track this visitor in RTDB for real-time Active Viewing count
+    if (rtdb && projectId) {
+      const vid = `visitor_${Math.random().toString(36).substring(7)}`;
+      const presenceRef = ref(rtdb, `cursors/${projectId}/${vid}`);
+      console.log(`[FeedbackTerminal] Setting presence for projectId: ${projectId}, visitorId: ${vid}`);
+      setRTDB(presenceRef, { 
+        id: vid, 
+        projectId, 
+        x: 0, 
+        y: 0, 
+        name: 'Visitor', 
+        color: '#F95A56',
+        lastSeen: new Date().toISOString()
+      }).catch(err => console.error("[RTDB Error]", err));
+      onDisconnect(presenceRef).remove();
+    }
+
     return () => window.removeEventListener('resize', checkMobile);
   }, [])
 
@@ -95,7 +151,73 @@ export default function FeedbackTerminalPage() {
         </div>
       }>
         {() => (
-          <div className="h-screen w-screen bg-black overflow-hidden flex flex-col font-mono">
+          <div className="h-screen w-screen bg-black overflow-hidden flex flex-col font-mono relative">
+            {testState === 'success' ? (
+              <div className="fixed inset-0 z-[5000] bg-[#0a0a0a] flex flex-col items-center justify-center p-4 font-mono overflow-y-auto">
+                {/* Background Gradients */}
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#F95A56]/10 rounded-full blur-[100px] pointer-events-none" />
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] pointer-events-none" />
+
+                <div className="w-full max-w-xl z-10 space-y-8 my-auto">
+                  <div className="text-center space-y-4">
+                    <h1 className="text-3xl font-black tracking-tighter text-white uppercase">INTEGRATION_SUCCESSFUL</h1>
+                    <p className="text-xs tracking-[0.2em] text-white/40 uppercase">
+                      Your collaborative environment is ready.
+                    </p>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                       <p className="text-[10px] tracking-[0.2em] text-white/30 uppercase pl-1">Final Feedback URL</p>
+                       <div className="bg-[#131313] border border-white/10 p-1 flex flex-col relative group shadow-2xl">
+                        <div className="absolute top-0 right-0 p-2 opacity-50 text-[9px] font-black uppercase tracking-widest text-[#F95A56]">Link</div>
+                        <pre className="bg-black/50 p-4 text-[12px] text-white/80 overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap mt-6">
+                          {`https://build-in-live-mvp.vercel.app/feedback/${projectId}`}
+                        </pre>
+                        <div className="p-1">
+                          <button
+                            onClick={() => copyToClipboard(`https://build-in-live-mvp.vercel.app/feedback/${projectId}`, 'url')}
+                            className="w-full py-3 bg-[#F95A56] hover:brightness-110 text-white font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(249,90,86,0.2)]"
+                          >
+                            {copiedKey === 'url' ? <Check className="w-4 h-4 text-white" /> : <Share2 className="w-4 h-4" />}
+                            {copiedKey === 'url' ? 'COPIED' : 'COPY_FEEDBACK_URL'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                       <p className="text-[10px] tracking-[0.2em] text-white/30 uppercase pl-1">Pre-written Guide (For your users)</p>
+                       <div className="bg-[#131313] border border-white/10 p-1 flex flex-col relative group shadow-2xl">
+                        <div className="absolute top-0 right-0 p-2 opacity-50 text-[9px] font-black uppercase tracking-widest text-[#F95A56]">Template</div>
+                        <pre className="bg-black/50 p-4 text-[12px] text-white/80 overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap mt-6 italic">
+                          "Help us improve! Click the 'Comments' button and tap ANYWHERE on the page to drop a marker at the exact location you want to give feedback on. Your insights are invaluable."
+                        </pre>
+                        <div className="p-1">
+                          <button
+                            onClick={() => copyToClipboard("Help us improve! Click the 'Comments' button and tap ANYWHERE on the page to drop a marker at the exact location you want to give feedback on. Your insights are invaluable.", 'guide')}
+                            className="w-full py-3 bg-white hover:bg-white/90 text-black font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                          >
+                            {copiedKey === 'guide' ? <Check className="w-4 h-4 text-black" /> : <List className="w-4 h-4" />}
+                            {copiedKey === 'guide' ? 'COPIED' : 'COPY_GUIDE_TEMPLATE'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <button 
+                      onClick={() => router.push('/')}
+                      className="w-full h-14 bg-transparent border border-white/10 text-white/50 hover:text-white hover:bg-white/5 font-black tracking-[0.3em] text-[10px] transition-all uppercase flex items-center justify-center group"
+                    >
+                      SHARING COMPLETE <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {/* Dynamic Header */}
             {(!isMobile || !isFeedOpen) && (
               <header className="h-[42px] border-b border-white/10 bg-[#0a0a0a] flex items-center justify-between px-6 z-[1000]">
@@ -120,17 +242,31 @@ export default function FeedbackTerminalPage() {
                 </div>
 
                 <div className="flex items-center gap-2 md:gap-3">
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(window.location.href);
-                      alert("Link copied to clipboard!");
-                    }}
-                    className={`flex items-center justify-center gap-2 bg-white text-black text-[10px] font-black tracking-widest uppercase hover:bg-white/90 hover:scale-105 active:scale-95 transition-all rounded-full shadow-[0_4px_12px_rgba(255,255,255,0.1)] ${isMobile ? 'w-9 h-9 p-0' : 'px-5 py-1.5'}`}
-                    title="Share Project"
-                  >
-                    <Share2 className={isMobile ? "w-4 h-4" : "w-3.5 h-3.5"} />
-                    {!isMobile && "Share"}
-                  </button>
+                  {!isTesting ? (
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.href);
+                        alert("Link copied to clipboard!");
+                      }}
+                      className={`flex items-center justify-center gap-2 bg-white text-black text-[10px] font-black tracking-widest uppercase hover:bg-white/90 hover:scale-105 active:scale-95 transition-all rounded-full shadow-[0_4px_12px_rgba(255,255,255,0.1)] ${isMobile ? 'w-9 h-9 p-0' : 'px-5 py-1.5'}`}
+                      title="Share Project"
+                    >
+                      <Share2 className={isMobile ? "w-4 h-4" : "w-3.5 h-3.5"} />
+                      {!isMobile && "Share"}
+                    </button>
+                  ) : (
+                    !isAddingMode && (
+                      <div className="flex items-center gap-4 animate-in fade-in slide-in-from-left-4 duration-700">
+                        <div className="bg-[#F95A56] text-white px-3 py-1 rounded-sm text-[9px] font-black uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(249,90,86,0.4)] flex items-center gap-2">
+                           <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                           Start here
+                        </div>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-[#F95A56] animate-bounce-x">
+                          <path d="M13 5L20 12L13 19M4 12H20" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )
+                  )}
 
                   <div className="w-[1px] h-3 bg-white/10" />
 
@@ -157,6 +293,7 @@ export default function FeedbackTerminalPage() {
                     </>
                   )}
                 </div>
+
               </header>
             )}
 
@@ -203,6 +340,99 @@ export default function FeedbackTerminalPage() {
                   />
               </div>
             </div>
+
+            {/* Test Mode Overlay Panel */}
+            {isTesting && testState !== 'success' && (
+              <div className="fixed bottom-0 left-0 w-full bg-[#131313] border-t border-white/10 p-6 z-[3000] shadow-[0_-10px_40px_rgba(0,0,0,0.8)] pb-8 md:pb-6">
+                <div className="max-w-4xl mx-auto">
+                  {testState === 'idle' && (
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                      <div className="space-y-1 text-center md:text-left">
+                        <h3 className="text-white font-black tracking-widest uppercase text-sm">Integration Check</h3>
+                        <p className="text-[#F95A56] text-[10px] uppercase font-bold tracking-[0.2em]">
+                          Is the page rendering properly? Can you drop markers and add comments?
+                        </p>
+                      </div>
+                      <div className="flex gap-3 w-full md:w-auto">
+                        <button 
+                          onClick={handleReport}
+                          className="flex-1 md:flex-none px-6 py-3 border border-white/20 text-white/70 hover:text-white hover:bg-white/10 text-[10px] font-black tracking-widest uppercase transition-colors"
+                        >
+                          REPORT AN ISSUE
+                        </button>
+                        <button 
+                          onClick={() => setTestState('success')}
+                          className="flex-1 md:flex-none px-6 py-3 bg-[#F95A56] text-white hover:brightness-110 text-[10px] font-black tracking-widest uppercase transition-colors shadow-[0_0_15px_rgba(249,90,86,0.3)]"
+                        >
+                          WORKING WELL
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {testState === 'input-issue' && (
+                    <form onSubmit={handleIssueSubmit} className="flex flex-col gap-4">
+                      <div className="space-y-1">
+                        <h3 className="text-white font-black tracking-widest uppercase text-sm">Report Issue</h3>
+                        <p className="text-[#F95A56] text-[10px] uppercase tracking-[0.2em]">
+                          Please describe the problem you encountered.
+                        </p>
+                      </div>
+                      <textarea
+                        required
+                        className="w-full bg-[#0a0a0a] border border-white/20 p-4 text-white text-[12px] focus:border-[#F95A56] focus:outline-none transition-colors min-h-[100px] resize-none"
+                        placeholder="What went wrong? e.g. 'I added the script but the cursor is not showing up...'"
+                        value={issueMemo}
+                        onChange={(e) => setIssueMemo(e.target.value)}
+                      />
+                      <div className="flex gap-3 justify-end">
+                        <button 
+                          type="button"
+                          onClick={() => setTestState('idle')}
+                          className="px-6 py-3 border border-white/20 text-white/70 hover:text-white hover:bg-white/10 text-[10px] font-black tracking-widest uppercase transition-colors"
+                        >
+                          CANCEL
+                        </button>
+                        <button 
+                          type="submit"
+                          disabled={!issueMemo.trim()}
+                          className="px-6 py-3 bg-[#F95A56] text-white hover:brightness-110 disabled:opacity-50 text-[10px] font-black tracking-widest uppercase transition-colors shadow-[0_0_15px_rgba(249,90,86,0.3)]"
+                        >
+                          SUBMIT & RETURN TO DASHBOARD
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {testState === 'reporting' && (
+                    <div className="flex items-center justify-center p-4">
+                      <Loader2 className="w-6 h-6 text-[#F95A56] animate-spin" />
+                      <span className="ml-3 text-white text-[10px] uppercase tracking-widest">SENDING REPORT...</span>
+                    </div>
+                  )}
+
+                  {testState === 'reported' && (
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                      <div className="space-y-1 text-center md:text-left">
+                        <h3 className="text-white font-black tracking-widest uppercase text-sm flex items-center justify-center md:justify-start gap-2">
+                          <Check className="w-5 h-5 text-green-500" />
+                          REPORT SUBMITTED
+                        </h3>
+                        <p className="text-white/50 text-[10px] uppercase tracking-[0.2em]">
+                          We've received your issue. You can explore the dashboard while we look into it.
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => router.push('/')}
+                        className="w-full md:w-auto px-8 py-3 bg-white text-black hover:bg-white/90 text-[10px] font-black tracking-widest uppercase transition-colors"
+                      >
+                        EXPLORE DASHBOARD →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </ClientSideSuspense>

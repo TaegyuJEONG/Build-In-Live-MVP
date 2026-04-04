@@ -9,8 +9,9 @@ import { Globe, FileText, HelpCircle, Check, Copy, AlertTriangle, Terminal, Chev
 
 export default function OnboardingPage() {
   const { firebaseUser } = useStore()
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState<number | 'report'>(1)
   const [loading, setLoading] = useState(false)
+  const [issueMemo, setIssueMemo] = useState("")
   const [formData, setFormData] = useState({
     url: "",
     name: "",
@@ -57,14 +58,66 @@ export default function OnboardingPage() {
     }
   }
 
+  const handleSkip = async () => {
+    if (!firebaseUser) return
+    setLoading(true)
+    try {
+      const currentDb = db;
+      if (!currentDb) return;
+      await setDoc(doc(currentDb, "users", firebaseUser.uid), {
+        hasProject: true,
+        skippedOnboarding: true,
+      }, { merge: true })
+      router.push("/")
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDoItLater = async () => {
+    if (!firebaseUser || !createdProjectId) return
+    setLoading(true)
+    try {
+      const currentDb = db;
+      if (!currentDb) return;
+      await setDoc(doc(currentDb, "projects", createdProjectId), {
+        scriptSkipped: true
+      }, { merge: true })
+      router.push("/")
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleReportIssue = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!firebaseUser || !createdProjectId) return
+    setLoading(true)
+    try {
+      const currentDb = db;
+      if (!currentDb) return;
+      await setDoc(doc(currentDb, "projects", createdProjectId), {
+        hasIssue: true,
+        issueMemo: issueMemo
+      }, { merge: true })
+      
+      router.push("/")
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text)
     setCopied(key)
     setTimeout(() => setCopied(null), 2000)
   }
-
-  // The correct script: async + inside <body>
-  const sdkScript = `<script src="https://build-in-live-mvp.vercel.app/sdk.js" data-project-id="${createdProjectId}" async></script>`
 
   const nextConfigCode = `// next.config.js (or next.config.mjs)
 async headers() {
@@ -76,6 +129,12 @@ async headers() {
         {
           key: 'Content-Security-Policy',
           value: "frame-ancestors 'self' https://build-in-live-mvp.vercel.app http://localhost:3000;",
+        },
+      ],
+    },
+  ]
+},`
+
   const aiPrompt = `I want to integrate the 'Build In Live' feedback SDK into my project. Please perform the following:
 
 1. Add this script tag to the body of the application (e.g., in layout.tsx or index.html), ensuring it has the 'async' attribute:
@@ -89,132 +148,153 @@ Please update the relevant files in my project to apply these changes.`
 
   const feedbackUrl = `https://build-in-live-mvp.vercel.app/feedback/${createdProjectId}`
 
+  if (step === 'report') {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-4 font-mono relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#F95A56]/10 rounded-full blur-[120px] pointer-events-none" />
+        
+        <div className="w-full max-w-xl z-10 space-y-8">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-black tracking-tighter text-[#F95A56] uppercase">REPORT_ISSUE</h1>
+            <p className="text-xs tracking-[0.2em] text-white/50 uppercase">
+              Please describe the problem you encountered
+            </p>
+          </div>
+
+          <form onSubmit={handleReportIssue} className="bg-[#131313] border border-white/10 p-6 shadow-2xl space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] tracking-[0.2em] text-white/50 uppercase block">Issue Details</label>
+              <textarea
+                required
+                className="w-full bg-transparent border border-white/20 p-4 text-white text-sm focus:border-white focus:outline-none transition-colors min-h-[150px] resize-none"
+                placeholder="What went wrong? e.g. 'I added the script but the cursor is not showing up...'"
+                value={issueMemo}
+                onChange={(e) => setIssueMemo(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-3">
+              <button
+                disabled={loading || !issueMemo.trim()}
+                type="submit"
+                className="w-full h-14 bg-[#F95A56] hover:brightness-110 text-white font-black tracking-[0.3em] text-xs transition-all uppercase flex items-center justify-center disabled:opacity-50"
+              >
+                {loading ? "SUBMITTING..." : "SUBMIT & GO TO DASHBOARD"}
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setStep(2)}
+                className="w-full h-14 bg-transparent border border-white/10 text-white/50 hover:text-white hover:bg-white/5 font-black tracking-[0.3em] text-[10px] transition-all uppercase disabled:opacity-50"
+              >
+                CANCEL
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   if (step === 2) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-mono">
-        <div className="w-full max-w-2xl space-y-4">
-          <div className="bg-[#131313] border border-green-500/30 p-8 flex items-center gap-4">
-            <div className="w-12 h-12 bg-green-500/10 border border-green-500 flex items-center justify-center text-green-500 shrink-0">
-              <Check className="w-8 h-8" />
-            </div>
-            <div>
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-4 font-mono relative overflow-hidden">
+        {/* Background Gradients similar to login */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#F95A56]/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] pointer-events-none" />
 
-            <div className="bg-[#F95A56]/10 border border-[#F95A56]/40 p-3 flex items-start gap-3">
-              <AlertTriangle className="w-4 h-4 text-[#F95A56] shrink-0 mt-0.5" />
-              <p className="text-[10px] text-[#F95A56] leading-relaxed">
-                Place this script <strong>inside {"<body>"}</strong> — NOT in {"<head>"}. Using <strong>async</strong> is required for correct initialization timing.
-              </p>
-            </div>
+        <div className="w-full max-w-xl z-10 space-y-8">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-black tracking-tighter text-white uppercase">ADD_SDK_SCRIPT</h1>
+            <p className="text-xs tracking-[0.2em] text-white/50 uppercase">
+              Paste this prompt into your AI assistant
+            </p>
+          </div>
 
-            <div className="relative group">
-              <pre className="bg-black p-4 text-[11px] text-blue-400 overflow-x-auto border border-white/5 font-mono leading-relaxed">
-                {sdkScript}
-              </pre>
+          <div className="bg-[#131313] border border-white/10 p-1 flex flex-col relative group shadow-2xl">
+            <div className="absolute top-0 right-0 p-2 opacity-50 text-[9px] font-black uppercase tracking-widest text-[#F95A56]">Prompt</div>
+            <pre className="bg-black/50 p-6 text-[12px] text-white/80 overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap mt-6">
+              {aiPrompt}
+            </pre>
+            <div className="p-1">
               <button
-                onClick={() => copyToClipboard(sdkScript, 'sdk')}
-                className="absolute right-2 top-2 p-2 bg-white/10 hover:bg-white text-white hover:text-black transition-colors flex items-center gap-1.5 text-[10px]"
+                onClick={() => copyToClipboard(aiPrompt, 'ai')}
+                className="w-full py-4 bg-[#F95A56] hover:brightness-110 text-white font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(249,90,86,0.2)]"
               >
-                {copied === 'sdk' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                {copied === 'sdk' ? 'Copied!' : 'Copy'}
+                {copied === 'ai' ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
+                {copied === 'ai' ? 'COPIED_SUCCESSFULLY' : 'COPY_PROMPT'}
               </button>
-            </div>
-
-            {/* Framework-specific tips */}
-            <div className="grid grid-cols-1 gap-2">
-              <div className="bg-white/[0.03] border border-white/5 p-3">
-                <div className="text-[9px] text-white/50 uppercase tracking-widest mb-1.5">Next.js / React</div>
-                <p className="text-[10px] text-white/40 leading-relaxed">
-                  Add inside the <span className="text-white/70">&lt;body&gt;</span> in <span className="text-white/70">app/layout.tsx</span> — after your last provider/component, before the closing <span className="text-white/70">&lt;/body&gt;</span> tag.
-                </p>
-              </div>
-              <div className="bg-white/[0.03] border border-white/5 p-3">
-                <div className="text-[9px] text-white/50 uppercase tracking-widest mb-1.5">HTML / Other Frameworks</div>
-                <p className="text-[10px] text-white/40 leading-relaxed">
-                  Paste just before the closing <span className="text-white/70">&lt;/body&gt;</span> tag in your main HTML template.
-                </p>
-              </div>
             </div>
           </div>
 
-          {/* Step 2: next.config.js headers (collapsible) */}
-          <div className="bg-[#131313] border border-white/10 p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-[#F95A56] flex items-center justify-center text-white text-[10px] font-black shrink-0">2</div>
-              <div className="text-[10px] text-white/60 tracking-widest uppercase">Allow iframe Embedding</div>
-            </div>
-
-            <p className="text-[10px] text-white/40 leading-relaxed">
-              Your site must allow being embedded in our feedback terminal. If you skip this step, the preview will show a blank screen.
-            </p>
-
+          <div className="space-y-3">
             <button
-              onClick={() => setShowNextConfig(!showNextConfig)}
-              className="w-full flex items-center justify-between p-3 bg-white/5 border border-white/10 hover:border-white/20 transition-colors text-[10px] text-white/60 uppercase tracking-widest"
+              disabled={loading}
+              onClick={() => setStep(3)}
+              className="w-full h-14 bg-white text-black font-black tracking-[0.3em] text-xs hover:bg-white/90 transition-all uppercase flex items-center justify-center disabled:opacity-50 border-4 border-transparent active:scale-[0.98]"
             >
-              <div className="flex items-center gap-2">
-                <Terminal className="w-3.5 h-3.5" />
-                <span>Next.js — Add to next.config.js</span>
-              </div>
-              {showNextConfig ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              I ADDED THE SCRIPT →
+            </button>
+            <button
+              disabled={loading}
+              onClick={handleDoItLater}
+              className="w-full h-14 bg-transparent border border-white/10 text-white/50 hover:text-white hover:bg-white/5 font-black tracking-[0.3em] text-[10px] transition-all uppercase disabled:opacity-50"
+            >
+              DO IT LATER
+            </button>
+            
+            <button
+              disabled={loading}
+              onClick={() => setStep('report')}
+              className="w-full text-[10px] tracking-[0.2em] text-white/30 hover:text-[#F95A56] uppercase transition-all mt-8 text-center"
+            >
+              Have a problem? Report Issue
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === 3) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-4 font-mono relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#F95A56]/5 rounded-full blur-[120px] pointer-events-none" />
+        
+        <div className="w-full max-w-md z-10 space-y-10 text-center">
+          <div className="space-y-4">
+            <div className="w-20 h-20 bg-[#F95A56]/10 border border-[#F95A56]/30 mx-auto flex items-center justify-center">
+              <AlertTriangle className="w-10 h-10 text-[#F95A56] animate-pulse" />
+            </div>
+            <h1 className="text-3xl font-black tracking-tighter text-white uppercase">REDEPLOY_CHECK</h1>
+            <p className="text-xs tracking-[0.2em] text-white/40 uppercase leading-relaxed">
+              Did you redeploy your site?<br />
+              The SDK only works on the live version of your deployment.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              onClick={() => router.push(`/feedback/${createdProjectId}?testing=true`)}
+              className="w-full h-16 bg-white text-black font-black tracking-[0.3em] text-xs hover:bg-white/90 transition-all uppercase flex items-center justify-center border-4 border-transparent active:scale-[0.98]"
+            >
+              YES, I REDEPLOYED →
+            </button>
+            <button
+              onClick={() => setStep(2)}
+              className="w-full h-14 bg-transparent border border-white/10 text-white/50 hover:text-white hover:bg-white/5 font-black tracking-[0.3em] text-[10px] transition-all uppercase"
+            >
+              NOT YET, TAKE ME BACK
             </button>
 
-            {showNextConfig && (
-              <div className="relative group">
-                <pre className="bg-black p-4 text-[11px] text-green-400 overflow-x-auto border border-white/5 font-mono leading-relaxed whitespace-pre-wrap">
-                  {nextConfigCode}
-                </pre>
-                <button
-                  onClick={() => copyToClipboard(nextConfigCode, 'nextconfig')}
-                  className="absolute right-2 top-2 p-2 bg-white/10 hover:bg-white text-white hover:text-black transition-colors flex items-center gap-1.5 text-[10px]"
-                >
-                  {copied === 'nextconfig' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copied === 'nextconfig' ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-            )}
-
-            <div className="bg-white/[0.03] border border-white/5 p-3">
-              <div className="text-[9px] text-white/50 uppercase tracking-widest mb-1.5">Other Frameworks (HTML / Express / etc.)</div>
-              <p className="text-[10px] text-white/40 leading-relaxed">
-                Add these HTTP response headers:<br />
-                <span className="text-white/60">X-Frame-Options: ALLOWALL</span><br />
-                <span className="text-white/60">Content-Security-Policy: frame-ancestors 'self' https://build-in-live-mvp.vercel.app</span>
-              </p>
-            </div>
-
-            <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
-              <p className="text-[10px] text-yellow-400/80 leading-relaxed">
-                After adding both the script and the headers, <strong>redeploy your site</strong>. Changes only take effect on the live URL after redeployment.
-              </p>
-            </div>
+            <button
+              disabled={loading}
+              onClick={() => setStep('report')}
+              className="w-full text-[10px] tracking-[0.2em] text-white/30 hover:text-[#F95A56] uppercase transition-all mt-8 text-center"
+            >
+              Have a problem? Report Issue
+            </button>
           </div>
-
-          {/* Feedback URL */}
-          <div className="bg-[#131313] border border-white/10 p-6 space-y-4">
-            <div className="text-[10px] text-white/60 tracking-widest uppercase">Your Feedback Terminal URL</div>
-            <p className="text-[10px] text-white/40 leading-relaxed">
-              Share this link with your team or testers. They can leave markers and comments directly on your live site.
-            </p>
-            <div className="flex items-center justify-between gap-2 bg-black/50 p-4 border border-white/5">
-              <span className="text-[11px] text-[#F95A56] font-mono truncate">{feedbackUrl}</span>
-              <button
-                onClick={() => copyToClipboard(feedbackUrl, 'url')}
-                className="p-2 bg-white/10 hover:bg-white text-white hover:text-black transition-colors shrink-0 flex items-center gap-1.5 text-[10px]"
-              >
-                {copied === 'url' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                {copied === 'url' ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-          </div>
-
-          {/* CTA */}
-          <button
-            onClick={() => router.push("/")}
-            className="w-full h-14 bg-white text-black font-black tracking-[0.3em] text-xs hover:bg-white/90 transition-all uppercase"
-          >
-            ENTER_DASHBOARD →
-          </button>
         </div>
       </div>
     )
@@ -292,13 +372,23 @@ Please update the relevant files in my project to apply these changes.`
             </div>
           </div>
 
-          <button
-            disabled={loading}
-            type="submit"
-            className="w-full h-14 bg-white text-black font-black tracking-[0.3em] text-xs hover:bg-white/90 disabled:opacity-50 transition-all uppercase mt-4"
-          >
-            {loading ? "INITIALIZING..." : "GENERATE_ENVIRONMENT →"}
-          </button>
+          <div className="space-y-3">
+            <button
+              disabled={loading}
+              type="submit"
+              className="w-full h-14 bg-white text-black font-black tracking-[0.3em] text-xs hover:bg-white/90 disabled:opacity-50 transition-all uppercase mt-4"
+            >
+              {loading ? "INITIALIZING..." : "GENERATE_ENVIRONMENT →"}
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={handleSkip}
+              className="w-full h-14 bg-transparent border border-white/10 text-white/50 hover:text-white hover:bg-white/5 font-black tracking-[0.3em] text-[10px] transition-all uppercase disabled:opacity-50"
+            >
+              SKIP FOR NOW
+            </button>
+          </div>
         </form>
       </div>
     </div>

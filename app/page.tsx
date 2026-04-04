@@ -1,6 +1,6 @@
 "use client"
 
-import { Radio, Terminal, Cpu, Plus, Minus, Layers, Grid3x3, BarChart3, Settings, Focus } from "lucide-react"
+import { Radio, Terminal, Cpu, Plus, Minus, Layers, Grid3x3, BarChart3, Settings, Focus, AlertTriangle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/BottomNav"
 import React, { useEffect, useState, useRef, useMemo } from "react"
@@ -364,9 +364,11 @@ interface CubeProps {
   commitColor?: string
   isHeartActive?: boolean
   heartDelay?: number
+  hasIssue?: boolean
+  isOwner?: boolean
 }
 
-function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, onClick, isCommitting = false, commitDelay = 0, commitColor = "white", isHeartActive = false, heartDelay = 0 }: CubeProps) {
+function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, onClick, isCommitting = false, commitDelay = 0, commitColor = "white", isHeartActive = false, heartDelay = 0, hasIssue = false, isOwner = false }: CubeProps) {
   const isSpecial = type === "?" || type === "!" || type === "fireworks"
   const isFireworks = type === "fireworks"
   const isGold = type === "gold"
@@ -386,7 +388,7 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, o
         justifyContent: "center",
         transform: `translate(${x}px, ${y}px)`,
         zIndex: isSpecial ? 50 : 10,
-        opacity: isHidden ? 0.05 : 1,
+        opacity: isHidden ? 0.05 : (hasIssue ? 0.4 : 1),
         pointerEvents: isHidden ? "none" : "auto",
         transition: "opacity 0.5s ease-in-out",
         animation: `drift 12s infinite ease-in-out`,
@@ -446,7 +448,7 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, o
               height: cubeSize,
               background: isGold ? "#FFD700" : isWhite ? "#ffffff" : "#cccccc",
               transform: `translateZ(${halfSize}px)`,
-              border: "0.5px solid rgba(255,255,255,0.1)",
+              border: isOwner ? "2px solid #F95A56" : "0.5px solid rgba(255,255,255,0.1)",
               backfaceVisibility: "hidden",
             }}
           />
@@ -459,7 +461,7 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, o
               height: cubeSize,
               background: isGold ? "#E5A000" : isWhite ? "#e0e0e0" : "#a0a0a0",
               transform: `rotateY(-90deg) translateZ(${halfSize}px)`,
-              border: "0.5px solid rgba(255,255,255,0.05)",
+              border: isOwner ? "2px solid #F95A56" : "0.5px solid rgba(255,255,255,0.05)",
               backfaceVisibility: "hidden",
               display: "flex",
               alignItems: "center",
@@ -494,7 +496,7 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, o
                 return `rgb(${r}, ${g}, ${b})`;
               })(),
               transform: `rotateX(-90deg) translateZ(${halfSize}px)`,
-              border: "0.5px solid rgba(255,255,255,0.05)",
+              border: isOwner ? "2px solid #F95A56" : "0.5px solid rgba(255,255,255,0.05)",
               backfaceVisibility: "hidden",
             }}
           />
@@ -628,7 +630,7 @@ function HeartFloat({ isHeartActive, delay = 0, duration = 10 }: { isHeartActive
 export default function BuildInLive() {
   const [mounted, setMounted] = React.useState(false)
   const router = useRouter();
-  const { init, setProject, projects, users } = useStore();
+  const { init, setProject, projects, users, firebaseUser, projectVisitorCounts } = useStore();
 
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -675,19 +677,21 @@ export default function BuildInLive() {
         r: pos.r,
         ring: Math.max(Math.abs(pos.q), Math.abs(pos.r), Math.abs(pos.q + pos.r)),
         delay: (i + 1) * 0.1,
-        type: '?', // Default to ? as per user request
+        type: (p.scriptSkipped || p.hasIssue) ? undefined : '?',
         logo: undefined,
         visitors: p.feedbackCount * 10, // Mocked visitor intensity based on feedback
         isAutoCommitting: true,
         isHeartActive: true,
         commitDelay: Math.random() * 5,
         heartDelay: Math.random() * 10,
-        projectData: p
+        projectData: p,
+        hasIssue: p.hasIssue,
+        isOwner: firebaseUser?.uid === p.ownerId
       });
     });
 
     return cubes;
-  }, [projects]);
+  }, [projects, firebaseUser?.uid]);
   
   const isDragging = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
@@ -730,11 +734,14 @@ export default function BuildInLive() {
       id: p.id,
       name: p.name.toUpperCase(),
       keywords: ["REAL_PROJECT", "LIVE_SYNC"],
-      visitors: cube.visitors,
+      visitors: projectVisitorCounts[p.id] || 0,
       likes: p.feedbackCount * 5,
       feedbacks: p.feedbackCount,
       errorsFixed: 0,
-      url: p.url
+      url: p.url,
+      hasIssue: p.hasIssue,
+      issueMemo: p.issueMemo,
+      description: p.description
     };
   };
 
@@ -898,6 +905,8 @@ export default function BuildInLive() {
                 commitColor={"white"}
                 isHeartActive={cube.isHeartActive}
                 heartDelay={cube.heartDelay}
+                hasIssue={cube.hasIssue}
+                isOwner={cube.isOwner}
                 onClick={() => {
                   if (!isDragging.current) {
                     setSelectedCube(cube);
@@ -934,6 +943,16 @@ export default function BuildInLive() {
 
             {/* Body */}
             <div className="p-6 flex flex-col gap-6">
+              {/* Description */}
+              {data.description && (
+                <div>
+                  <div className="text-[9px] text-white/40 tracking-[0.3em] uppercase mb-3">Project Description</div>
+                  <div className="text-[11px] leading-relaxed text-white/80 opacity-90">
+                    {data.description}
+                  </div>
+                </div>
+              )}
+
               {/* URL */}
               <div>
                 <div className="text-[9px] text-white/40 tracking-[0.3em] uppercase mb-3">Live Environment</div>
@@ -952,10 +971,24 @@ export default function BuildInLive() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1 p-3 bg-[#0a0a0a]/90 backdrop-blur-md">
-                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Mock Intensity</div>
+                  <div className="text-[8px] text-white/40 tracking-[0.15em] uppercase mb-1">Active Viewing</div>
                   <div className="text-xl font-mono text-white/90 px-1">{data.visitors}</div>
                 </div>
               </div>
+
+              {/* Issue Memo */}
+              {data.hasIssue && data.issueMemo && (
+                <div>
+                  <div className="text-[9px] text-[#F95A56] tracking-[0.3em] uppercase mb-3 flex items-center gap-2">
+                    <AlertTriangle className="w-3 h-3" />
+                    Reported Issue
+                  </div>
+                  <div className="text-[11px] text-white/80 bg-[#1a0f0f] border border-[#F95A56]/30 p-4 leading-relaxed relative">
+                    {data.issueMemo}
+                    <div className="absolute top-0 right-0 w-2 h-2 bg-[#F95A56] rounded-bl" />
+                  </div>
+                </div>
+              )}
 
               {/* Call to Action */}
               <button 
