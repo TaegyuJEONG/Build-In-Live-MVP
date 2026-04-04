@@ -787,7 +787,12 @@ export default function BuildInLive() {
   if (!mounted) return null;
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#0a0a0a] select-none" style={{ fontFamily: "Inter, sans-serif" }}>
+    <RoomProvider 
+      id="dashboard" 
+      initialPresence={{ cursor: null, name: "Anonymous", color: "#F95A56", pathname: "" }}
+      initialStorage={{ markers: new LiveList([]), comments: new LiveMap() }}
+    >
+      <div className="relative w-screen h-screen overflow-hidden bg-[#0a0a0a] select-none" style={{ fontFamily: "Inter, sans-serif" }}>
       {/* Global Keyframes */}
       <style jsx global>{`
         @keyframes drift {
@@ -878,7 +883,7 @@ export default function BuildInLive() {
       </header>
 
       {/* Lateral Spatial Controls */}
-      <aside className="fixed left-8 top-1/2 -translate-y-1/2 flex flex-col gap-0 z-50 p-0 bg-transparent">
+      <aside className="fixed left-4 md:left-8 top-1/2 -translate-y-1/2 flex flex-col gap-0 z-50 p-0 bg-transparent scale-90 md:scale-100 origin-left">
         <div className="px-2 py-4 mb-4 border-l border-white/20">
           <div className="text-[8px] tracking-[0.3em] uppercase text-white/30 mb-1">COORDINATES</div>
           <div className="text-[10px] tracking-widest uppercase text-white">{getCoordinates()}</div>
@@ -1183,14 +1188,18 @@ export default function BuildInLive() {
 
       {/* Node Analysis Overlay */}
       {showAnalysis && (
-        <div className="fixed top-32 right-12 w-48 p-0 bg-transparent pointer-events-none">
+        <div className="fixed top-20 md:top-32 right-4 md:right-12 w-32 md:w-48 p-0 bg-transparent pointer-events-none">
           <div className="font-bold text-[8px] tracking-[0.4em] text-white/20 mb-6 uppercase border-b border-white/10 pb-2">
             LIVE_ANALYSIS
           </div>
           <div className="space-y-6">
             <div className="flex justify-between items-end">
               <span className="text-[8px] text-white/30 uppercase tracking-widest">Studio Viewing</span>
-              <span className="text-[10px] text-[#F95A56] font-mono font-bold">{(users?.length || 0) + 1}</span>
+              <span className="text-[10px] text-[#F95A56] font-mono font-bold">
+                <ClientSideSuspense fallback={<>{(users?.length || 0) + 1}</>}>
+                  {() => <LiveVisitorCountReader fallback={(users?.length || 0) + 1} />}
+                </ClientSideSuspense>
+              </span>
             </div>
             <div className="flex justify-between items-end">
               <span className="text-[8px] text-white/30 uppercase tracking-widest">Active Desks</span>
@@ -1337,6 +1346,7 @@ export default function BuildInLive() {
         </div>
       )}
     </div>
+    </RoomProvider>
   )
 }
 
