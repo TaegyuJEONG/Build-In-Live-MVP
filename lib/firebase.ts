@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
+import { getStorage } from "firebase/storage";
 
 // Database URL check is critical to prevent build failure
 const isValidDatabaseURL = (url: string | undefined): boolean => {
@@ -62,6 +63,7 @@ try {
 // Export instances or nulls with defensive checks
 export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
+export const storage = app ? getStorage(app) : null;
 
 // Safely initialize RTDB
 let rtdbInstance = null;
