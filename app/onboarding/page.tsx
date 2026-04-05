@@ -166,7 +166,7 @@ async headers() {
         { key: 'X-Frame-Options', value: 'ALLOWALL' },
         {
           key: 'Content-Security-Policy',
-          value: "frame-ancestors 'self' https://build-in-live-mvp.vercel.app http://localhost:3000;",
+          value: "frame-ancestors 'self' https://build-in-live-mvp.vercel.app;",
         },
       ],
     },
@@ -182,7 +182,7 @@ async headers() {
      <script src="https://build-in-live-mvp.vercel.app/sdk.js" data-project-id="${createdProjectId}" async></script>
 
 2. **Configure Security Headers (Crucial for SDK Iframe)**:
-   - Configure the site to allow being embedded in an iframe specifically by "https://build-in-live-mvp.vercel.app" and "http://localhost:3000".
+   - Configure the site to allow being embedded in an iframe specifically by "https://build-in-live-mvp.vercel.app".
    - **IMPORTANT**: Use 'Content-Security-Policy: frame-ancestors' instead of 'X-Frame-Options'. Avoid using 'ALLOWALL' as it is non-standard.
    - For **Vercel**: Update 'vercel.json' with:
      {
@@ -190,7 +190,7 @@ async headers() {
          {
            "source": "/(.*)",
            "headers": [
-             { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://build-in-live-mvp.vercel.app http://localhost:3000" }
+             { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://build-in-live-mvp.vercel.app" }
            ]
          }
        ]
@@ -261,13 +261,13 @@ Please review the project structure, identify all relevant files, and apply thes
           <div className="text-center space-y-4">
             <h1 className="text-3xl font-black tracking-tighter text-white uppercase">ADD_SDK_SCRIPT</h1>
             <p className="text-xs tracking-[0.2em] text-white/50 uppercase">
-              Paste this prompt into your AI assistant
+              Paste this prompt into your AI assistant (e.g. Cursor.ai)
             </p>
           </div>
 
           <div className="bg-[#131313] border border-white/10 p-1 flex flex-col relative group shadow-2xl">
             <div className="absolute top-0 right-0 p-2 opacity-50 text-[9px] font-black uppercase tracking-widest text-[#F95A56]">Prompt</div>
-            <pre className="bg-black/50 p-6 text-[12px] text-white/80 overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap mt-6">
+            <pre className="bg-black/50 p-6 text-[12px] text-white/80 overflow-y-auto max-h-[300px] font-mono leading-relaxed whitespace-pre-wrap mt-6 custom-scrollbar">
               {aiPrompt}
             </pre>
             <div className="p-1">

@@ -346,7 +346,18 @@ export function FeedbackSystem({
               key={marker.id}
               className={`absolute pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 transition-transform ${activeMarkerId === marker.id ? 'scale-110 z-[9002]' : 'hover:scale-110 z-[9001]'}`}
               style={{ left: displayX, top: displayY }}
-              onClick={(e) => { e.stopPropagation(); setIsFeedOpen(true); setIsNewMarker(false); setActiveMarkerId(marker.id === activeMarkerId ? null : marker.id); }}
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setIsFeedOpen(true); 
+                setIsNewMarker(false); 
+                const nextId = marker.id === activeMarkerId ? null : marker.id;
+                setActiveMarkerId(nextId);
+                if (nextId) {
+                  setTimeout(() => {
+                    document.getElementById(`comment-${nextId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 100);
+                }
+              }}
             >
               <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center cursor-pointer shadow-lg transition-all overflow-hidden
                 ${activeMarkerId === marker.id ? 'border-[#F95A56] scale-110' : 'border-white hover:border-[#F95A56]'}`}
@@ -421,7 +432,7 @@ export function FeedbackSystem({
              const text = replyText[marker.id] || "";
              
              return (
-               <div key={marker.id} className={`bg-[#1A1A1A]/60 backdrop-blur-sm rounded-2xl p-4 pt-3.5 shadow-lg border transition-all cursor-pointer ${isActive ? 'border-[#F95A56]' : 'border-white/[0.05] hover:border-white/10'}`}
+               <div key={marker.id} id={`comment-${marker.id}`} className={`bg-[#1A1A1A]/60 backdrop-blur-sm rounded-2xl p-4 pt-3.5 shadow-lg border transition-all cursor-pointer ${isActive ? 'border-[#F95A56]' : 'border-white/[0.05] hover:border-white/10'}`}
                     onClick={() => {
                        setActiveMarkerId(marker.id);
                        setIsNewMarker(false);

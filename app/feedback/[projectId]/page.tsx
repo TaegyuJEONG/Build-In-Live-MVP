@@ -222,25 +222,6 @@ function VerificationWrapper({
 
             <div className="space-y-6">
               <div className="space-y-2">
-                 <p className="text-[10px] tracking-[0.2em] text-white/30 uppercase pl-1">Final Feedback URL</p>
-                 <div className="bg-[#131313] border border-white/10 p-1 flex flex-col relative group shadow-2xl">
-                  <div className="absolute top-0 right-0 p-2 opacity-50 text-[9px] font-black uppercase tracking-widest text-[#F95A56]">Link</div>
-                  <pre className="bg-black/50 p-4 text-[12px] text-white/80 overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap mt-6">
-                    {`https://build-in-live-mvp.vercel.app/feedback/${projectId}`}
-                  </pre>
-                  <div className="p-1">
-                    <button
-                      onClick={() => copyToClipboard(`https://build-in-live-mvp.vercel.app/feedback/${projectId}`, 'url')}
-                      className="w-full py-3 bg-[#F95A56] hover:brightness-110 text-white font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(249,90,86,0.2)]"
-                    >
-                      {copiedKey === 'url' ? <Check className="w-4 h-4 text-white" /> : <Share2 className="w-4 h-4" />}
-                      {copiedKey === 'url' ? 'COPIED' : 'COPY_FEEDBACK_URL'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
                  <p className="text-[10px] tracking-[0.2em] text-white/30 uppercase pl-1">Pre-written Guide (For your users)</p>
                  <div className="bg-[#131313] border border-white/10 p-1 flex flex-col relative group shadow-2xl">
                   <div className="absolute top-0 right-0 p-2 opacity-50 text-[9px] font-black uppercase tracking-widest text-[#F95A56]">Template</div>
@@ -254,6 +235,25 @@ function VerificationWrapper({
                     >
                       {copiedKey === 'guide' ? <Check className="w-4 h-4 text-black" /> : <List className="w-4 h-4" />}
                       {copiedKey === 'guide' ? 'COPIED' : 'COPY_GUIDE_TEMPLATE'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                 <p className="text-[10px] tracking-[0.2em] text-white/30 uppercase pl-1">Final Feedback URL</p>
+                 <div className="bg-[#131313] border border-white/10 p-1 flex flex-col relative group shadow-2xl">
+                  <div className="absolute top-0 right-0 p-2 opacity-50 text-[9px] font-black uppercase tracking-widest text-[#F95A56]">Link</div>
+                  <pre className="bg-black/50 p-4 text-[12px] text-white/80 overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap mt-6">
+                    {`https://build-in-live-mvp.vercel.app/feedback/${projectId}`}
+                  </pre>
+                  <div className="p-1">
+                    <button
+                      onClick={() => copyToClipboard(`https://build-in-live-mvp.vercel.app/feedback/${projectId}`, 'url')}
+                      className="w-full py-3 bg-[#F95A56] hover:brightness-110 text-white font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(249,90,86,0.2)]"
+                    >
+                      {copiedKey === 'url' ? <Check className="w-4 h-4 text-white" /> : <Share2 className="w-4 h-4" />}
+                      {copiedKey === 'url' ? 'COPIED' : 'COPY_FEEDBACK_URL'}
                     </button>
                   </div>
                 </div>
@@ -423,20 +423,31 @@ function VerificationWrapper({
                           : "PLEASE DROP AT LEAST ONE MARKER TO VERIFY THE SDK IS WORKING."}
                       </p>
                     </div>
-                    <div className="flex gap-3 w-full md:w-auto">
-                      <button 
-                        onClick={handleReport}
-                        className="flex-1 md:flex-none px-6 py-3 border border-white/20 text-white/70 hover:text-white hover:bg-white/10 text-[10px] font-black tracking-widest uppercase transition-colors"
-                      >
-                        REPORT AN ISSUE
-                      </button>
-                      <button 
-                        onClick={handleWorkingWell}
-                        disabled={!hasMarkers}
-                        className={`flex-1 md:flex-none px-6 py-3 bg-[#F95A56] text-white hover:brightness-110 text-[10px] font-black tracking-widest uppercase transition-colors shadow-[0_0_15px_rgba(249,90,86,0.3)] ${!hasMarkers ? 'opacity-30 cursor-not-allowed' : ''}`}
-                      >
-                        WORKING WELL
-                      </button>
+                    <div className="flex items-center gap-4 w-full md:w-auto">
+                      <div className="flex gap-3 flex-1 md:flex-none">
+                        <button 
+                          onClick={handleReport}
+                          className="flex-1 md:flex-none px-6 py-3 border border-white/20 text-white/70 hover:text-white hover:bg-white/10 text-[10px] font-black tracking-widest uppercase transition-colors"
+                        >
+                          REPORT AN ISSUE
+                        </button>
+                        <button 
+                          onClick={handleWorkingWell}
+                          disabled={!hasMarkers}
+                          className={`flex-1 md:flex-none px-6 py-3 bg-[#F95A56] text-white hover:brightness-110 text-[10px] font-black tracking-widest uppercase transition-colors shadow-[0_0_15px_rgba(249,90,86,0.3)] ${!hasMarkers ? 'opacity-30 cursor-not-allowed' : ''}`}
+                        >
+                          WORKING WELL
+                        </button>
+                      </div>
+                      
+                      {hasMarkers && (
+                        <div className="hidden md:flex items-center gap-2 text-[#F95A56] animate-in fade-in slide-in-from-left-4 duration-700">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="animate-bounce-x">
+                            <path d="M13 5L20 12L13 19M4 12H20" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          <span className="text-[10px] font-black tracking-[0.2em] uppercase">Finish Testing</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
