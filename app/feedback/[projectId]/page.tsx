@@ -352,7 +352,7 @@ function VerificationWrapper({
 
           {/* Main Content Area */}
           <div 
-            className={`flex-1 relative bg-[#0a0a0a] flex transition-all ${isAddingMode ? 'bg-[#F95A56]/20' : ''}`}
+            className={`flex-1 relative bg-[#0a0a0a] flex transition-all overflow-hidden ${isAddingMode ? 'bg-[#F95A56]/10' : ''}`}
             style={isAddingMode ? { cursor: `url("data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 32 32' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='16' cy='16' r='10' fill='%23F95A56' stroke='white' stroke-width='2'/%3E%3Cpath d='M16 26L16 30' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") 16 16, crosshair` } : {}}
           >
             {/* Mobile Addition Hint */}
@@ -364,17 +364,9 @@ function VerificationWrapper({
                 </div>
               </div>
             )}
-            <div className={`flex-1 flex transition-all relative m-1 overflow-hidden ${isAddingMode ? 'ring-[20px] ring-[#F95A56]/20' : 'ring-[10px] ring-[#F95A56]/5'} ${isMobile && isFeedOpen ? 'hidden' : 'flex'}`}>
-              <div 
-                className="absolute inset-[-150%] opacity-100"
-                style={{
-                  background: 'conic-gradient(from 0deg, transparent 0deg, #F95A56 90deg, transparent 180deg, #F95A56 270deg, transparent 360deg)',
-                  animation: isAddingMode ? 'spin-slow 3s linear infinite' : 'spin-slow 10s linear infinite',
-                  zIndex: 0
-                }}
-              />
-              
-              <div className={`flex-1 flex flex-col bg-black relative z-10 m-[6px] overflow-hidden`}>
+
+            <div className={`flex-1 flex transition-all relative m-2 md:m-3 overflow-hidden rounded-sm bg-[#131313] p-[2px] border border-[#F95A56]/30 shadow-[0_0_40px_rgba(249,90,86,0.1)] animate-pulse-glow ${isMobile && isFeedOpen ? 'hidden' : 'flex'}`}>
+              <div className="flex-1 flex flex-col bg-black relative z-10 overflow-hidden rounded-[1px]">
                 <iframe
                   ref={iframeRef}
                   src={projectData.url}
@@ -383,7 +375,7 @@ function VerificationWrapper({
                   style={isAddingMode ? { pointerEvents: 'auto' } : {}}
                 />
               </div>
-
+              
               <div className="absolute inset-0 pointer-events-none">
                 {!isMobile && <LiveCursors projectId={projectId} />}
               </div>
@@ -403,11 +395,46 @@ function VerificationWrapper({
           </div>
 
           <style jsx>{`
-            @keyframes spin-slow {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
+            @keyframes pulse-glow {
+              0%, 100% { 
+                box-shadow: 0 0 30px rgba(249,90,86,0.2), inset 0 0 15px rgba(249,90,86,0.1); 
+                border-color: rgba(249,90,86,0.4); 
+              }
+              50% { 
+                box-shadow: 0 0 60px rgba(249,90,86,0.6), inset 0 0 30px rgba(249,90,86,0.3); 
+                border-color: rgba(249,90,86,1); 
+              }
+            }
+            .animate-pulse-glow {
+              animation: pulse-glow 2s ease-in-out infinite;
             }
           `}</style>
+
+
+
+          <style jsx>{`
+            @keyframes laser-h {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(100%); }
+            }
+            @keyframes laser-h-rev {
+              0% { transform: translateX(100%); }
+              100% { transform: translateX(-100%); }
+            }
+            @keyframes laser-v {
+              0% { transform: translateY(100%); }
+              100% { transform: translateY(-100%); }
+            }
+            @keyframes laser-v-rev {
+              0% { transform: translateY(-100%); }
+              100% { transform: translateY(100%); }
+            }
+            .animate-laser-h { animation: laser-h 4s linear infinite; }
+            .animate-laser-h-rev { animation: laser-h-rev 4s linear infinite; }
+            .animate-laser-v { animation: laser-v 4s linear infinite; }
+            .animate-laser-v-rev { animation: laser-v-rev 4s linear infinite; }
+          `}</style>
+
 
           {/* Test Mode Overlay Panel */}
           {isTesting && testState !== 'success' && (

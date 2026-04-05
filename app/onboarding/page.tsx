@@ -281,7 +281,19 @@ Please review the project structure, identify all relevant files, and apply thes
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
+            <div className="relative aspect-video w-full bg-[#131313] border border-white/10 shadow-2xl overflow-hidden group">
+              <div className="absolute top-0 left-0 p-2 z-10 opacity-50 text-[7px] font-black uppercase tracking-widest text-[#F95A56]">Installation_Guide</div>
+              <iframe 
+                className="w-full h-full"
+                src="https://www.youtube.com/embed/ZqKPlCPFrLA?vq=hd1080" 
+                title="Build In Live SDK Installation" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                allowFullScreen
+              ></iframe>
+            </div>
+
+            <div className="space-y-3">
             <button
               disabled={loading}
               onClick={() => setStep(3)}
@@ -307,6 +319,7 @@ Please review the project structure, identify all relevant files, and apply thes
           </div>
         </div>
       </div>
+    </div>
     )
   }
 

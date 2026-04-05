@@ -1,6 +1,6 @@
 "use client"
 
-import { Radio, Terminal, Cpu, Plus, Minus, Layers, SquarePlus, BarChart3, Settings, Focus, AlertTriangle, Trash2, PenSquare } from "lucide-react"
+import { Radio, Terminal, Cpu, Plus, Minus, Layers, SquarePlus, BarChart3, Settings, Focus, AlertTriangle, Trash2, PenSquare, Hand } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/BottomNav"
 import React, { useEffect, useState, useRef, useMemo } from "react"
@@ -369,9 +369,10 @@ interface CubeProps {
   heartDelay?: number
   hasIssue?: boolean
   isOwner?: boolean
+  hasReport?: boolean
 }
 
-function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, onClick, isCommitting = false, commitDelay = 0, commitColor = "white", isHeartActive = false, heartDelay = 0, hasIssue = false, isOwner = false }: CubeProps) {
+function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, onClick, isCommitting = false, commitDelay = 0, commitColor = "white", isHeartActive = false, heartDelay = 0, hasIssue = false, isOwner = false, hasReport = false }: CubeProps) {
   const isSpecial = type === "?" || type === "!" || type === "fireworks"
   const isFireworks = type === "fireworks"
   const isGold = type === "gold"
@@ -430,6 +431,18 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, o
           />
         )}
               
+          {/* Exclamation mark for reported issues - no circle, stands upright above cube's top-left edge */}
+          {hasReport && (
+            <div 
+              className="absolute top-1/2 left-1/2 -translate-x-[250%] -translate-y-[200%] z-[1000] animate-bounce pointer-events-none select-none font-black italic text-[24px] md:text-[32px] text-[#F95A56]"
+              style={{ 
+                textShadow: "0 0 15px rgba(249,90,86,0.8), 0 0 5px rgba(249,90,86,1)",
+                lineHeight: 1
+              }}
+            >
+              !
+            </div>
+          )}
 
           <div
             style={{
@@ -443,6 +456,7 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, o
             {/* 3D Symbol floating above cube completely integrated into the 3D space */}
             {isSpecial && !isFireworks && <Symbol3D symbol={type!} />}
             {isFireworks && <Fireworks3D />}
+
           <div
             className="hover:bg-white/90 transition-colors"
             style={{
@@ -681,6 +695,11 @@ export default function BuildInLive() {
       const pos = getHexPosition(i + 1);
       const x = 100 * (pos.q - pos.r);
       const y = 58 * (pos.q + pos.r);
+      
+      const isOwner = firebaseUser?.uid === p.ownerId;
+      const isAdmin = firebaseUser?.email === 'taegyujeong@gmail.com';
+      const canSeeIssue = isOwner || isAdmin;
+      
       cubes.push({
         id: p.id,
         x,
@@ -689,8 +708,8 @@ export default function BuildInLive() {
         r: pos.r,
         ring: Math.max(Math.abs(pos.q), Math.abs(pos.r), Math.abs(pos.q + pos.r)),
         delay: (i + 1) * 0.1,
-        // Show '?' only if verified and no issue
-        type: (p.isVerified && !p.hasIssue) ? '?' : null,
+        // Show '?' only if verified and no issue OR if issue is hidden from current user
+        type: (p.isVerified && (!p.hasIssue || !canSeeIssue)) ? '?' : null,
         logo: undefined,
         visitors: p.feedbackCount * 10, // Mocked visitor intensity based on feedback
         isAutoCommitting: true,
@@ -698,8 +717,10 @@ export default function BuildInLive() {
         commitDelay: Math.random() * 5,
         heartDelay: Math.random() * 10,
         projectData: p,
-        hasIssue: p.hasIssue,
-        isOwner: firebaseUser?.uid === p.ownerId
+        hasIssue: p.hasIssue && canSeeIssue,
+        isOwner: isOwner,
+        hasReport: !p.isVerified && p.hasIssue && canSeeIssue,
+        isVerified: p.isVerified
       });
     });
 
@@ -754,10 +775,11 @@ export default function BuildInLive() {
       feedbacks: p.feedbackCount,
       errorsFixed: 0,
       url: p.url,
-      hasIssue: p.hasIssue,
-      issueMemo: p.issueMemo,
+      hasIssue: cube.hasIssue,
+      issueMemo: cube.hasIssue ? p.issueMemo : null,
       description: p.description,
-      isOwner: cube.isOwner
+      isOwner: cube.isOwner,
+      isVerified: cube.isVerified
     };
   };
 
@@ -850,10 +872,18 @@ export default function BuildInLive() {
 
             {isSettingsOpen && (
               <div 
-                className="absolute right-0 mt-2 w-48 bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-200"
+                className="absolute right-0 mt-2 w-56 bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-200"
                 onMouseLeave={() => setIsSettingsOpen(false)}
               >
                 <div className="p-1">
+                  {/* User Identity Section */}
+                  <div className="px-4 py-3 border-b border-white/5 mb-1 bg-white/[0.02]">
+                    <div className="text-[7px] tracking-[0.4em] text-white/20 uppercase mb-1.5 font-bold">USER_IDENTITY</div>
+                    <div className="text-[10px] tracking-wider text-white/50 lowercase truncate" title={firebaseUser?.email || ''}>
+                      {firebaseUser?.email}
+                    </div>
+                  </div>
+
                   <button 
                     onClick={async () => {
                       const { auth } = await import("@/lib/firebase");
@@ -998,6 +1028,7 @@ export default function BuildInLive() {
                 heartDelay={cube.heartDelay}
                 hasIssue={cube.hasIssue}
                 isOwner={cube.isOwner}
+                hasReport={cube.hasReport}
                 onClick={() => {
                   if (!isDragging.current) {
                     setSelectedCube(cube);
@@ -1172,10 +1203,16 @@ export default function BuildInLive() {
 
                   {/* Call to Action */}
                   <button 
-                    className="w-full py-3 md:py-4 mt-1 md:mt-2 bg-white text-black font-black tracking-[0.2em] md:tracking-[0.3em] text-[8px] md:text-[10px] hover:bg-white/90 transition-colors uppercase border-none cursor-pointer"
+                    disabled={!data.isVerified && !data.isOwner && firebaseUser?.email !== 'taegyujeong@gmail.com'}
+                    className={`w-full py-3 md:py-4 mt-1 md:mt-2 font-black tracking-[0.2em] md:tracking-[0.3em] text-[8px] md:text-[10px] transition-all uppercase border-none cursor-pointer
+                      ${(!data.isVerified && !data.isOwner && firebaseUser?.email !== 'taegyujeong@gmail.com') 
+                        ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                        : 'bg-white text-black hover:bg-white/90 active:scale-[0.98]'}`}
                     onClick={() => router.push(`/feedback/${data.id}`)}
                   >
-                    ENTER_FEEDBACK_TERMINAL
+                    {!data.isVerified && (data.isOwner || firebaseUser?.email === 'taegyujeong@gmail.com')
+                      ? 'ACTIVATE_COMMENTS_SDK →'
+                      : 'ENTER_FEEDBACK_TERMINAL'}
                   </button>
                 </>
               )}
@@ -1245,31 +1282,7 @@ export default function BuildInLive() {
 
                     const { doc, deleteDoc, collection, query, where, getDocs, writeBatch } = await import("firebase/firestore");
                     
-                    // 1. First, TRY to delete the user account to check for "requires-recent-login"
-                    // Note: This will fail if they haven't logged in recently.
-                    try {
-                      await user.delete();
-                    } catch (error: any) {
-                      if (error.code === 'auth/requires-recent-login') {
-                        setDeleteError("Recent login required. Logging you out for re-authentication...");
-                        setTimeout(async () => {
-                          await auth.signOut();
-                          router.push("/auth");
-                        }, 2000);
-                        return;
-                      }
-                      throw error;
-                    }
-
-                    // 2. If account deletion succeeded, clean up projects and data
-                    // Note: We might need admin privileges or a Cloud Function to clean up after user is deleted,
-                    // but for this MVP, we take the risk of orphans or attempt cleanup before (if rules allow).
-                    // Actually, if we delete user first, they lose Firestore permissions.
-                    // Let's do it in a way that minimizes risk.
-                    
-
-                    
-                    // Cleanup Projects
+                    // 1. Cleanup Projects while still authenticated
                     const projectsRef = collection(db, "projects");
                     const q = query(projectsRef, where("ownerId", "==", user.uid));
                     const projectSnapshots = await getDocs(q);
@@ -1280,8 +1293,24 @@ export default function BuildInLive() {
                     });
                     await batch.commit();
 
-                    // Cleanup User Doc
+                    // 2. Cleanup User Doc
                     await deleteDoc(doc(db, "users", user.uid));
+
+                    // 3. Finally delete the user account from Firebase Auth
+                    // Note: This will fail if they haven't logged in recently.
+                    try {
+                      await user.delete();
+                    } catch (authError: any) {
+                      if (authError.code === 'auth/requires-recent-login') {
+                        setDeleteError("Recent login required. Logging you out for re-authentication...");
+                        setTimeout(async () => {
+                          await auth.signOut();
+                          router.push("/auth");
+                        }, 2000);
+                        return;
+                      }
+                      throw authError;
+                    }
                     
                     router.push("/auth");
                   } catch (error: any) {

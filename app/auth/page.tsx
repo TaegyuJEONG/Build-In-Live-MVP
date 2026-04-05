@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation"
 import { Mail, Lock, Chrome } from "lucide-react"
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true)
+  const [isLogin, setIsLogin] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -32,9 +32,12 @@ export default function AuthPage() {
       }
       router.push("/")
     } catch (err: any) {
-      const msg = err.code?.includes('invalid-credential') || err.code?.includes('user-not-found') || err.code?.includes('wrong-password')
-        ? "Invalid email or password. Please try again."
-        : err.message;
+      let msg = err.message;
+      if (err.code?.includes('invalid-credential') || err.code?.includes('user-not-found') || err.code?.includes('wrong-password')) {
+        msg = "Invalid email or password. Please try again.";
+      } else if (err.code?.includes('email-already-in-use')) {
+        msg = "This email is already in use. Please use a different email or log in.";
+      }
       setError(msg)
     } finally {
       setLoading(false)
@@ -137,7 +140,7 @@ export default function AuthPage() {
             onClick={() => setIsLogin(!isLogin)}
             className="text-[10px] tracking-[0.2em] text-white/40 hover:text-white transition-colors uppercase"
           >
-            {isLogin ? "Signup" : "Login"}
+            {isLogin ? "SIGN_UP" : "LOG_IN"}
           </button>
         </div>
       </div>
