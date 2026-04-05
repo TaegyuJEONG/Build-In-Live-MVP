@@ -173,16 +173,32 @@ async headers() {
   ]
 },`
 
-  const aiPrompt = `I want to integrate the 'Build In Live' feedback SDK into my project. Please perform the following:
+  const aiPrompt = `I want to integrate the 'Build In Live' feedback SDK into my project. Please perform the following steps carefully to ensure a seamless integration:
 
-1. Add this script tag to the body of the application (e.g., in layout.tsx or index.html), ensuring it has the 'async' attribute:
-<script src="https://build-in-live-mvp.vercel.app/sdk.js" data-project-id="${createdProjectId}" async></script>
+1. **Inject SDK Script Globally**: 
+   - Locate ALL entry-point HTML files (e.g., index.html, index.php, or static landing pages like landing.html).
+   - For Next.js projects, add this to the RootLayout in 'app/layout.tsx'.
+   - Insert the following script tag just before the closing </body> tag in all identified files:
+     <script src="https://build-in-live-mvp.vercel.app/sdk.js" data-project-id="${createdProjectId}" async></script>
 
-2. Configure the site to allow being embedded in an iframe from "https://build-in-live-mvp.vercel.app" and "http://localhost:3000".
-   - For Next.js: Update next.config.js with X-Frame-Options: ALLOWALL and frame-ancestors CSP headers.
-   - For others: Ensure equivalent headers are set in the server or meta tags.
+2. **Configure Security Headers (Crucial for SDK Iframe)**:
+   - Configure the site to allow being embedded in an iframe specifically by "https://build-in-live-mvp.vercel.app" and "http://localhost:3000".
+   - **IMPORTANT**: Use 'Content-Security-Policy: frame-ancestors' instead of 'X-Frame-Options'. Avoid using 'ALLOWALL' as it is non-standard.
+   - For **Vercel**: Update 'vercel.json' with:
+     {
+       "headers": [
+         {
+           "source": "/(.*)",
+           "headers": [
+             { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://build-in-live-mvp.vercel.app http://localhost:3000" }
+           ]
+         }
+       ]
+     }
+   - For **Next.js**: Update 'next.config.js' headers function with the same CSP.
+   - For **Vite**: Update 'vite.config.ts' server.headers with the same CSP.
 
-Please update the relevant files in my project to apply these changes.`
+Please review the project structure, identify all relevant files, and apply these changes to ensure the feedback system works on every page.`
 
   const feedbackUrl = `https://build-in-live-mvp.vercel.app/feedback/${createdProjectId}`
 
