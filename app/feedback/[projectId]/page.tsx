@@ -11,6 +11,7 @@ import { db } from "@/lib/firebase"
 import { doc, getDoc, setDoc } from "firebase/firestore"
 import { Loader2, ArrowLeft, Globe, Share2, List, MessageSquarePlus, ChevronLeft, ChevronRight, Check } from "lucide-react"
 import { LiveList, LiveMap } from "@liveblocks/client"
+import { cn } from "@/lib/utils"
 
 export default function FeedbackTerminalPage() {
   const { projectId } = useParams() as { projectId: string }
@@ -26,13 +27,17 @@ export default function FeedbackTerminalPage() {
   const searchParams = useSearchParams()
   const isTesting = searchParams.get('testing') === 'true'
   const [testState, setTestState] = useState<'idle' | 'input-issue' | 'reporting' | 'reported' | 'success'>('idle')
-  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
   const [issueMemo, setIssueMemo] = useState("")
 
-  const copyToClipboard = (text: string, key: string) => {
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  const copyToClipboard = (text: string, key: string = 'generic') => {
     navigator.clipboard.writeText(text)
-    setCopiedKey(key)
-    setTimeout(() => setCopiedKey(null), 2000)
+    showToast(key === 'url' ? 'LINK_COPIED' : 'TEMPLATE_COPIED', 'success')
   }
 
   const handleReport = () => {
@@ -151,9 +156,11 @@ export default function FeedbackTerminalPage() {
             setIssueMemo={setIssueMemo} 
             handleIssueSubmit={handleIssueSubmit} 
             handleReport={handleReport} 
-            copiedKey={copiedKey} 
             copyToClipboard={copyToClipboard} 
             firebaseUser={firebaseUser} 
+            viewMode={searchParams.get('view')}
+            toast={toast}
+            showToast={showToast}
           />
         )}
       </ClientSideSuspense>
@@ -177,9 +184,11 @@ function VerificationWrapper({
   setIssueMemo, 
   handleIssueSubmit, 
   handleReport, 
-  copiedKey, 
   copyToClipboard,
-  firebaseUser
+  firebaseUser,
+  viewMode,
+  toast,
+  showToast
 }: any) {
   const markers = useStorage((root) => root.markers);
   const router = useRouter();
@@ -204,8 +213,45 @@ function VerificationWrapper({
     }
   };
 
+  // Special Mode: Only Comments List for Secondary Monitor
+  if (viewMode === 'comments') {
+    return (
+      <div className="h-screen w-screen bg-black overflow-hidden flex flex-col font-mono">
+        <header className="h-14 border-b border-white/5 bg-[#0D0D0D] flex items-center justify-between px-6 shrink-0 z-[10000]">
+           <div className="flex items-center gap-6">
+              <HeaderStatus projectName={projectData?.name} />
+           </div>
+           
+           <div className="flex items-center gap-3">
+              <button 
+                onClick={() => copyToClipboard(`https://build-in-live-mvp.vercel.app/feedback/${projectId}`, 'url')}
+                className="flex items-center justify-center gap-2 bg-white text-black text-[10px] font-black tracking-widest uppercase hover:bg-white/90 px-5 py-1.5 rounded-full shadow-[0_4px_12px_rgba(255,255,255,0.1)] hover:scale-105 active:scale-95 transition-all"
+                title="Share Project"
+              >
+                {toast?.message === 'LINK_COPIED' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+                {toast?.message === 'LINK_COPIED' ? "Copied" : "Share"}
+              </button>
+           </div>
+        </header>
+
+        <div className="flex-1 relative overflow-hidden">
+           <FeedbackSystem 
+              projectId={projectId} 
+              iframeRef={iframeRef} 
+              ownerId={projectData?.ownerId}
+              isAddingMode={false}
+              setIsAddingMode={() => {}}
+              isFeedOpen={true}
+              setIsFeedOpen={() => {}}
+              viewMode="comments"
+            />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen w-screen bg-black overflow-hidden flex flex-col font-mono relative">
+    <div className="fixed inset-0 bg-black overflow-hidden flex flex-col font-mono">
       {testState === 'success' ? (
         <div className="fixed inset-0 z-[5000] bg-[#0a0a0a] flex flex-col items-center justify-center p-4 font-mono overflow-y-auto">
           {/* Background Gradients */}
@@ -233,8 +279,8 @@ function VerificationWrapper({
                       onClick={() => copyToClipboard("Help us improve! Click the 'Comments' button and tap ANYWHERE on the page to drop a marker at the exact location you want to give feedback on. Your insights are invaluable.", 'guide')}
                       className="w-full py-3 bg-white hover:bg-white/90 text-black font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
                     >
-                      {copiedKey === 'guide' ? <Check className="w-4 h-4 text-black" /> : <List className="w-4 h-4" />}
-                      {copiedKey === 'guide' ? 'COPIED' : 'COPY_GUIDE_TEMPLATE'}
+                      {toast?.message === 'TEMPLATE_COPIED' ? <Check className="w-4 h-4 text-black" /> : <List className="w-4 h-4" />}
+                      {toast?.message === 'TEMPLATE_COPIED' ? 'COPIED' : 'COPY_GUIDE_TEMPLATE'}
                     </button>
                   </div>
                 </div>
@@ -252,8 +298,8 @@ function VerificationWrapper({
                       onClick={() => copyToClipboard(`https://build-in-live-mvp.vercel.app/feedback/${projectId}`, 'url')}
                       className="w-full py-3 bg-[#F95A56] hover:brightness-110 text-white font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(249,90,86,0.2)]"
                     >
-                      {copiedKey === 'url' ? <Check className="w-4 h-4 text-white" /> : <Share2 className="w-4 h-4" />}
-                      {copiedKey === 'url' ? 'COPIED' : 'COPY_FEEDBACK_URL'}
+                      {toast?.message === 'LINK_COPIED' ? <Check className="w-4 h-4 text-white" /> : <Share2 className="w-4 h-4" />}
+                      {toast?.message === 'LINK_COPIED' ? 'COPIED' : 'COPY_FEEDBACK_URL'}
                     </button>
                   </div>
                 </div>
@@ -273,7 +319,7 @@ function VerificationWrapper({
       ) : (
         <>
           {/* Dynamic Header */}
-          {(!isMobile || !isFeedOpen) && (
+          {(!isMobile || !isFeedOpen) && viewMode !== 'main' && (
             <header className="h-[42px] border-b border-white/10 bg-[#0a0a0a] flex items-center justify-between px-6 z-[1000]">
               <div className="flex items-center gap-6">
                 <button 
@@ -289,15 +335,12 @@ function VerificationWrapper({
               <div className="flex items-center gap-2 md:gap-3">
                 {!isTesting ? (
                   <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(window.location.href);
-                      alert("Link copied to clipboard!");
-                    }}
+                    onClick={() => copyToClipboard(window.location.href, 'url')}
                     className={`flex items-center justify-center gap-2 bg-white text-black text-[10px] font-black tracking-widest uppercase hover:bg-white/90 hover:scale-105 active:scale-95 transition-all rounded-full shadow-[0_4px_12px_rgba(255,255,255,0.1)] ${isMobile ? 'w-9 h-9 p-0' : 'px-5 py-1.5'}`}
                     title="Share Project"
                   >
-                    <Share2 className={isMobile ? "w-4 h-4" : "w-3.5 h-3.5"} />
-                    {!isMobile && "Share"}
+                    {toast?.message === 'LINK_COPIED' ? <Check className="w-3.5 h-3.5" /> : <Share2 className={isMobile ? "w-4 h-4" : "w-3.5 h-3.5"} />}
+                    {!isMobile && (toast?.message === 'LINK_COPIED' ? "Copied" : "Share")}
                   </button>
                 ) : (
                   !isAddingMode && !hasMarkers && (
@@ -318,9 +361,9 @@ function VerificationWrapper({
                   onClick={() => {
                     if (!isVerified && !isTesting) {
                       if (isOwner) {
-                        alert("Please click 'Activate Comments' to enable feedback for everyone.");
+                        showToast("PLEASE_ACTIVATE_COMMENTS", 'error');
                       } else {
-                        alert("Commenting is disabled until the project is verified by the owner.");
+                        showToast("COMMENTS_DISABLED_BY_OWNER", 'error');
                       }
                       return;
                     }
@@ -365,7 +408,7 @@ function VerificationWrapper({
               </div>
             )}
 
-            <div className={`flex-1 flex transition-all relative m-2 md:m-3 overflow-hidden rounded-sm bg-[#131313] p-[2px] border border-[#F95A56]/30 shadow-[0_0_40px_rgba(249,90,86,0.1)] animate-pulse-glow ${isMobile && isFeedOpen ? 'hidden' : 'flex'}`}>
+            <div className={`flex-1 flex transition-all relative ${viewMode === 'main' ? 'm-0 p-0 border-none' : 'm-2 md:m-3 p-[2px] border border-[#F95A56]/30 animate-pulse-glow'} overflow-hidden rounded-sm bg-[#131313] shadow-[0_0_40px_rgba(249,90,86,0.1)] ${isMobile && isFeedOpen ? 'hidden' : 'flex'}`}>
               <div className="flex-1 flex flex-col bg-black relative z-10 overflow-hidden rounded-[1px]">
                 <iframe
                   ref={iframeRef}
@@ -377,22 +420,57 @@ function VerificationWrapper({
               </div>
               
               <div className="absolute inset-0 pointer-events-none">
-                {!isMobile && <LiveCursors projectId={projectId} />}
+                {!isMobile && viewMode !== 'main' && <LiveCursors projectId={projectId} />}
               </div>
             </div>
 
             <div className={`${isMobile && isFeedOpen ? 'fixed inset-0 z-[2000] bg-[#131313] pointer-events-auto' : 'absolute inset-0 pointer-events-none'}`}>
-               <FeedbackSystem 
-                  projectId={projectId} 
-                  iframeRef={iframeRef} 
-                  ownerId={projectData.ownerId}
-                  isAddingMode={isAddingMode}
-                  setIsAddingMode={setIsAddingMode}
-                  isFeedOpen={isFeedOpen}
-                  setIsFeedOpen={setIsFeedOpen}
-                />
-            </div>
+                 <FeedbackSystem 
+                    projectId={projectId} 
+                    iframeRef={iframeRef} 
+                    ownerId={projectData.ownerId}
+                    isAddingMode={isAddingMode}
+                    setIsAddingMode={setIsAddingMode}
+                    isFeedOpen={isFeedOpen}
+                    setIsFeedOpen={setIsFeedOpen}
+                    viewMode={viewMode}
+                  />
+              </div>
           </div>
+
+          {/* Toast Notification for UI Events */}
+          {toast && (
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[10000] animate-in slide-in-from-bottom-4 duration-300">
+              <div className={cn(
+                "border border-white/10 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3",
+                toast.type === 'error' ? "bg-red-500/10 border-red-500/20" : "bg-[#1A1A1A]"
+              )}>
+                 <div className={cn(
+                   "w-5 h-5 rounded-full flex items-center justify-center",
+                   toast.type === 'error' ? "bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]" : "bg-[#F95A56]"
+                 )}>
+                    {toast.type === 'error' ? <div className="text-[14px] font-black leading-none">!</div> : <Check className="w-3 h-3 text-white" />}
+                 </div>
+                 <span className={cn(
+                   "text-[11px] font-black tracking-[0.2em] uppercase",
+                   toast.type === 'error' ? "text-red-500" : "text-white"
+                 )}>
+                    {toast.message}
+                 </span>
+              </div>
+            </div>
+          )}
+
+          <style jsx global>{`
+            html, body {
+              overflow: hidden !important;
+              height: 100% !important;
+              width: 100% !important;
+              position: fixed !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+          `}</style>
 
           <style jsx>{`
             @keyframes pulse-glow {

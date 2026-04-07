@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 export function BottomNav() {
   const pathname = usePathname();
   const isProjectView = pathname.startsWith("/project/");
+  const isDeskView = pathname === "/desk";
+  const isStudioView = pathname === "/";
   const projectId = isProjectView ? pathname.split("/")[2] : null;
   const [lastVisitedDesk, setLastVisitedDesk] = useState<string | null>(null);
 
@@ -24,17 +26,20 @@ export function BottomNav() {
       {/* Studio / Main */}
       <Link 
         href="/"
-        className={`px-4 md:px-8 py-3 md:py-4 flex items-center gap-2 md:gap-3 transition-colors ${!isProjectView ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+        className={`px-4 md:px-8 py-3 md:py-4 flex items-center gap-2 md:gap-3 transition-all duration-300 ${isStudioView ? 'bg-white/10 text-white font-black' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
       >
-        <span className="text-[8px] md:text-[10px] tracking-[0.2em] uppercase font-bold text-nowrap">Studio</span>
+        <span className="text-[8px] md:text-[10px] tracking-[0.2em] uppercase text-nowrap">Studio</span>
       </Link>
       
       <div className="w-px h-8 bg-white/10" />
       
-      {/* My Desk - Always inactive for now */}
-      <button className="px-4 md:px-8 py-3 md:py-4 flex items-center gap-2 md:gap-3 text-white/20 hover:text-white/60 transition-colors cursor-not-allowed">
-        <span className="text-[8px] md:text-[10px] tracking-[0.2em] uppercase font-bold text-nowrap">My Desk</span>
-      </button>
+      {/* My Desk - Active for the showcase drawer */}
+      <Link 
+        href="/desk"
+        className={`px-4 md:px-8 py-3 md:py-4 flex items-center gap-2 md:gap-3 transition-all duration-300 ${isDeskView ? 'bg-white/10 text-white font-black' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+      >
+        <span className="text-[8px] md:text-[10px] tracking-[0.2em] uppercase text-nowrap">My Desk</span>
+      </Link>
 
       <div className="w-px h-8 bg-white/10" />
 
