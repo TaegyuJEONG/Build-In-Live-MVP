@@ -486,16 +486,31 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, o
             }}
           >
             {/* Logo on left face */}
-            {logo && CompanyLogos[logo] && (
-              <div
-                style={{
-                  color: logoColors[logo] || "#ffffff",
-                  transform: "rotateZ(45deg)",
-                }}
+            {logo ? (
+              <div 
+                className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-white/5 border border-white/10 transition-all duration-500"
+                style={{ transform: "rotateZ(90deg)" }}
               >
-                {CompanyLogos[logo]}
+                {logo.startsWith('http') || logo.startsWith('/') ? (
+                  <img 
+                    src={logo} 
+                    alt="Project Logo" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  CompanyLogos[logo] && (
+                    <div
+                      style={{
+                        color: logoColors[logo] || "#ffffff",
+                        scale: "0.7"
+                      }}
+                    >
+                      {CompanyLogos[logo]}
+                    </div>
+                  )
+                )}
               </div>
-            )}
+            ) : null}
           </div>
           
           {/* Right Face - Red heat map based on visitors */}
@@ -661,7 +676,17 @@ export default function BuildInLive() {
   const [showAnalysis, setShowAnalysis] = useState(true);
   const [showProjectDeleteConfirm, setShowProjectDeleteConfirm] = useState(false);
   const [isEditingProject, setIsEditingProject] = useState(false);
-  const [editedData, setEditedData] = useState({ name: '', url: '', description: '' });
+  const [editedData, setEditedData] = useState({ 
+    name: '', 
+    url: '', 
+    description: '',
+    tagline: '',
+    logoUrl: '',
+    screenshots: '',
+    categories: '',
+    techStacks: '',
+    demoVideo: ''
+  });
   const { deleteProject, updateProject } = useStore();
   
   React.useEffect(() => {
@@ -710,7 +735,7 @@ export default function BuildInLive() {
         delay: (i + 1) * 0.1,
         // Show '?' only if verified and no issue OR if issue is hidden from current user
         type: (p.isVerified && (!p.hasIssue || !canSeeIssue)) ? '?' : null,
-        logo: undefined,
+        logo: p.logoUrl,
         visitors: p.feedbackCount * 10, // Mocked visitor intensity based on feedback
         isAutoCommitting: true,
         isHeartActive: true,
@@ -798,11 +823,17 @@ export default function BuildInLive() {
     e.preventDefault();
     if (!selectedCube?.id) return;
     try {
-      await updateProject(selectedCube.id, editedData);
+      const dataToUpdate = {
+        ...editedData,
+        screenshots: editedData.screenshots.split(',').map(s => s.trim()).filter(Boolean),
+        categories: editedData.categories.split(',').map(s => s.trim()).filter(Boolean),
+        techStacks: editedData.techStacks.split(',').map(s => s.trim()).filter(Boolean),
+      };
+      await updateProject(selectedCube.id, dataToUpdate);
       setIsEditingProject(false);
       // Update selectedCube local data for immediate feedback if needed, 
       // but the real-time project listener in store will update the grid and panel.
-      setSelectedCube({ ...selectedCube, projectData: { ...selectedCube.projectData, ...editedData } });
+      setSelectedCube({ ...selectedCube, projectData: { ...selectedCube.projectData, ...dataToUpdate } });
     } catch (err) {
       console.error(err);
     }
@@ -816,7 +847,7 @@ export default function BuildInLive() {
       initialPresence={{ cursor: null, name: "Anonymous", color: "#F95A56", pathname: "" }}
       initialStorage={{ markers: new LiveList([]), comments: new LiveMap() }}
     >
-      <div className="relative w-screen h-screen overflow-hidden bg-[#0a0a0a] select-none" style={{ fontFamily: "Inter, sans-serif" }}>
+      <div className="relative w-screen h-screen overflow-hidden bg-[#0a0a0a]" style={{ fontFamily: "Inter, sans-serif" }}>
       {/* Global Keyframes */}
       <style jsx global>{`
         @keyframes drift {
@@ -1062,7 +1093,13 @@ export default function BuildInLive() {
                         setEditedData({
                           name: selectedCube.projectData.name,
                           url: selectedCube.projectData.url,
-                          description: selectedCube.projectData.description || ''
+                          description: selectedCube.projectData.description || '',
+                          tagline: selectedCube.projectData.tagline || '',
+                          logoUrl: selectedCube.projectData.logoUrl || '',
+                          screenshots: (selectedCube.projectData.screenshots || []).join(', '),
+                          categories: (selectedCube.projectData.categories || []).join(', '),
+                          techStacks: (selectedCube.projectData.techStacks || []).join(', '),
+                          demoVideo: selectedCube.projectData.demoVideo || ''
                         });
                         setIsEditingProject(true);
                       }}
@@ -1119,9 +1156,65 @@ export default function BuildInLive() {
                   <div className="space-y-2">
                     <label className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase block">Description</label>
                     <textarea
-                      className="w-full bg-transparent border border-white/20 p-2 text-white text-[11px] md:text-xs focus:border-white focus:outline-none transition-colors min-h-[80px] md:min-h-[100px] resize-none"
+                      className="w-full bg-transparent border border-white/20 p-2 text-white text-[11px] md:text-xs focus:border-white focus:outline-none transition-colors min-h-[60px] resize-none"
                       value={editedData.description}
                       onChange={(e) => setEditedData({ ...editedData, description: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase block">Tagline</label>
+                    <input
+                      className="w-full bg-transparent border-b border-white/20 py-1.5 text-white text-[11px] md:text-xs focus:border-white focus:outline-none transition-colors"
+                      value={editedData.tagline}
+                      onChange={(e) => setEditedData({ ...editedData, tagline: e.target.value })}
+                      placeholder="e.g. Unbound your potential."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase block">Logo URL</label>
+                    <input
+                      className="w-full bg-transparent border-b border-white/20 py-1.5 text-white text-[11px] md:text-xs focus:border-white focus:outline-none transition-colors"
+                      value={editedData.logoUrl}
+                      onChange={(e) => setEditedData({ ...editedData, logoUrl: e.target.value })}
+                      placeholder="https://.../logo.png"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase block">Screenshots (comma separated)</label>
+                    <textarea
+                      className="w-full bg-transparent border border-white/20 p-2 text-white text-[11px] md:text-xs focus:border-white focus:outline-none transition-colors min-h-[60px] resize-none"
+                      value={editedData.screenshots}
+                      onChange={(e) => setEditedData({ ...editedData, screenshots: e.target.value })}
+                      placeholder="url1, url2, url3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase block">Categories</label>
+                      <input
+                        className="w-full bg-transparent border-b border-white/20 py-1.5 text-white text-[11px] md:text-xs focus:border-white focus:outline-none transition-colors"
+                        value={editedData.categories}
+                        onChange={(e) => setEditedData({ ...editedData, categories: e.target.value })}
+                        placeholder="SaaS, AI"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase block">Tech Stacks</label>
+                      <input
+                        className="w-full bg-transparent border-b border-white/20 py-1.5 text-white text-[11px] md:text-xs focus:border-white focus:outline-none transition-colors"
+                        value={editedData.techStacks}
+                        onChange={(e) => setEditedData({ ...editedData, techStacks: e.target.value })}
+                        placeholder="Next.js, Firebase"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase block">Demo Video URL (YouTube/Embed)</label>
+                    <input
+                      className="w-full bg-transparent border-b border-white/20 py-1.5 text-white text-[11px] md:text-xs focus:border-white focus:outline-none transition-colors"
+                      value={editedData.demoVideo}
+                      onChange={(e) => setEditedData({ ...editedData, demoVideo: e.target.value })}
+                      placeholder="https://www.youtube.com/embed/..."
                     />
                   </div>
                   <div className="flex gap-2 pt-2">

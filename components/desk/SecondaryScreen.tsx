@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { Project } from "@/app/desk/page";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Project } from "@/app/desk/[uid]/page";
+import { cn } from "@/lib/utils";
 
 interface SecondaryScreenProps {
   project: Project;
@@ -10,7 +10,39 @@ interface SecondaryScreenProps {
 }
 
 const SecondaryScreen: React.FC<SecondaryScreenProps> = ({ project, viewMode }) => {
-  const isLive = viewMode === "live" && project.feedbackId;
+  const isLive = viewMode === "live" && project?.feedbackId;
+
+  if (!project) {
+    return (
+      <div className="relative w-full group flex flex-col items-center bg-transparent translate-y-2">
+        <div className="w-full h-[460px] bg-[#fcfcfc] rounded-[2rem] border-[6px] border-[#f0f0f0] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.2)] flex flex-col p-1.5 backdrop-blur-sm">
+           <div className="flex-1 w-full bg-[#0a0a0a] rounded-[1.5rem] overflow-hidden flex flex-col items-center justify-center border border-white/5 p-8 text-center">
+              <div className="w-12 h-12 rounded bg-white/5 border border-white/10 flex items-center justify-center mb-6 animate-pulse">
+                 <div className="w-2 h-2 rounded-full bg-white/20"></div>
+              </div>
+              <h3 className="text-white/20 text-[10px] font-black uppercase tracking-[0.4em] mb-4">Diagnostics_System</h3>
+              <div className="space-y-3 w-full">
+                 <div className="h-[1px] w-full bg-white/5"></div>
+                 <div className="flex justify-between text-[8px] font-mono text-white/10 tracking-widest uppercase">
+                    <span>Signal</span>
+                    <span>No_Data</span>
+                 </div>
+                 <div className="flex justify-between text-[8px] font-mono text-white/10 tracking-widest uppercase">
+                    <span>Power</span>
+                    <span>Stable</span>
+                 </div>
+                 <div className="h-[1px] w-full bg-white/5"></div>
+              </div>
+           </div>
+        </div>
+        <div className="relative flex flex-col items-center -mt-px z-0">
+          <div className="w-8 h-10 bg-gradient-to-b from-[#f0f0f0] to-[#e5e5e5] shadow-inner border-x border-black/[0.02]"></div>
+          <div className="w-32 h-1.5 bg-[#f5f5f5] rounded-sm shadow-[0_4px_10px_rgba(0,0,0,0.15)] border-b border-black/5"></div>
+          <div className="w-40 h-2 bg-black/20 blur-md rounded-full mt-0.5 opacity-25"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full group flex flex-col items-center bg-transparent translate-y-2">
@@ -24,7 +56,7 @@ const SecondaryScreen: React.FC<SecondaryScreenProps> = ({ project, viewMode }) 
              {isLive ? (
                 <div className="w-full h-full bg-black relative">
                    <iframe 
-                      src={`/feedback/${project.feedbackId}?view=comments`}
+                      src={`/feedback/${project?.feedbackId}?view=comments`}
                       className="absolute inset-0 border-none pointer-events-auto"
                       style={{ 
                         width: '200%', 
@@ -32,56 +64,70 @@ const SecondaryScreen: React.FC<SecondaryScreenProps> = ({ project, viewMode }) 
                         transform: 'scale(0.5)', 
                         transformOrigin: 'top left' 
                       }}
+                      title="Secondary monitor comments"
                    />
                 </div>
              ) : (
-                <div className="flex-1 flex flex-col pt-6 px-5 pb-6">
-                   <ScrollArea className="flex-1 w-full custom-scrollbar pr-2">
-                      <div className="space-y-6">
-                         {/* About Section */}
-                         <section>
-                            <h3 className="text-white/30 text-[9px] font-black uppercase tracking-[0.2em] mb-3">About {project.name}</h3>
-                            <p className="text-white/90 font-medium text-[13px] leading-relaxed">
-                               {project.description}
-                            </p>
-                         </section>
+                <div className="flex-1 flex flex-col pt-6 px-6 pb-6 pointer-events-auto overflow-hidden">
+                    <div className="flex-1 w-full overflow-y-auto no-scrollbar pr-1 scroll-smooth">
+                       <div className="space-y-7">
+                          {/* Common Section Render Style */}
+                          
+                          {/* About Section */}
+                          <section>
+                             <h3 className="text-white/20 text-[8px] font-black uppercase tracking-[0.4em] mb-2.5 flex items-center gap-2">
+                                <span className="w-1 h-1 rounded-full bg-[#F95A56]"></span>
+                                ABOUT_PROJECT
+                             </h3>
+                             <p className="text-white/70 font-medium text-[12px] leading-relaxed tracking-tight">
+                                {(project as any).about || project.description}
+                             </p>
+                          </section>
 
-                         {/* Categories Section */}
-                         <section>
-                            <h3 className="text-white/30 text-[9px] font-black uppercase tracking-[0.2em] mb-3">Categories</h3>
-                            <div className="flex flex-wrap gap-1.5">
-                               {project.categories.map((cat, idx) => (
-                                  <span key={idx} className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[9px] font-bold text-white/60 uppercase">
-                                     {cat}
-                                  </span>
-                               ))}
-                            </div>
-                         </section>
+                          {/* Unified Metadata Sections */}
+                          {[
+                            { label: "CATEGORIES", data: project.categories, type: 'tag' },
+                            { label: "USE_CASES", data: (project as any).useCases, type: 'list' },
+                            { label: "TARGET_AUDIENCE", data: (project as any).targetAudience, type: 'tag', prefix: '@' },
+                            { label: "PLATFORMS", data: (project as any).platforms, type: 'tag' },
+                            { label: "TECH_STACKS", data: project.techStacks, type: 'highlight' },
+                          ].map((section, sIdx) => (
+                            section.data && section.data.length > 0 && (
+                              <section key={sIdx}>
+                                 <h3 className="text-white/20 text-[8px] font-black uppercase tracking-[0.4em] mb-2.5">
+                                    {section.label}
+                                 </h3>
+                                 <div className={cn(
+                                   "flex flex-wrap gap-2",
+                                   section.type === 'list' && "flex-col gap-3"
+                                 )}>
+                                    {section.data.map((item: string, iIdx: number) => (
+                                      section.type === 'list' ? (
+                                        <div key={iIdx} className="flex items-start gap-3 group">
+                                           <div className="w-1 h-[1px] bg-[#F95A56]/60 mt-[7px] transition-all group-hover:w-3" />
+                                           <span className="text-white/50 text-[11px] font-medium tracking-tight group-hover:text-white/80 transition-colors">{item}</span>
+                                        </div>
+                                      ) : (
+                                        <span 
+                                          key={iIdx} 
+                                          className={cn(
+                                            "px-2.5 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-wider transition-all",
+                                            section.type === 'highlight' 
+                                              ? "bg-[#F95A56]/5 border-[#F95A56]/20 text-[#F95A56] hover:bg-[#F95A56]/10" 
+                                              : "bg-white/[0.03] border-white/10 text-white/40 hover:text-white/80 hover:border-white/20"
+                                          )}
+                                        >
+                                          {section.prefix}{item}
+                                        </span>
+                                      )
+                                    ))}
+                                 </div>
+                              </section>
+                            )
+                          ))}
+                       </div>
+                    </div>
 
-                         {/* Tech Stacks Section */}
-                         <section>
-                            <h3 className="text-white/30 text-[9px] font-black uppercase tracking-[0.2em] mb-3">Tech Stacks</h3>
-                            <div className="flex flex-wrap gap-1.5">
-                                {project.techStacks.map((tech, idx) => (
-                                  <span key={idx} className="px-2.5 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-300 text-[9px] font-black uppercase tracking-wider shadow-[0_0_10px_rgba(99,102,241,0.05)]">
-                                     {tech}
-                                  </span>
-                               ))}
-                            </div>
-                         </section>
-                      </div>
-                   </ScrollArea>
-                   
-                   {/* Bottom Navigation / Status Indicator */}
-                   <div className="mt-4 flex items-center justify-between">
-                      <div className="flex gap-1.5">
-                         <div className="w-1.2 h-1.2 rounded-full bg-white/20 animate-pulse"></div>
-                         <div className="w-1.2 h-1.2 rounded-full bg-white/10"></div>
-                      </div>
-                      <div className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">
-                         V2.4.0
-                      </div>
-                   </div>
                 </div>
              )}
           </div>

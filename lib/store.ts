@@ -53,14 +53,17 @@ export type Project = {
   name: string;
   url: string;
   logoUrl?: string;
+  tagline?: string;
   description?: string;
-  guide?: string;
-  createdAt: any;
-  feedbackCount: number;
-  scriptSkipped?: boolean;
-  hasIssue?: boolean;
-  issueMemo?: string;
+  screenshots?: string[];
+  categories?: string[];
+  techStacks?: string[];
+  demoVideo?: string;
   isVerified?: boolean;
+  about?: string;
+  useCases?: string[];
+  targetAudience?: string[];
+  platforms?: string[];
 };
 
 interface AppState {
@@ -86,6 +89,7 @@ interface AppState {
   // Project Management
   deleteProject: (projectId: string) => Promise<void>;
   updateProject: (projectId: string, data: Partial<Project>) => Promise<void>;
+  addProject: (data: Omit<Project, 'id' | 'createdAt' | 'feedbackCount' | 'ownerId'>) => Promise<string>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -256,5 +260,21 @@ export const useStore = create<AppState>((set, get) => ({
     const currentDb = db;
     if (!currentDb) return;
     await updateDoc(doc(currentDb, 'projects', projectId), data);
+  },
+
+  addProject: async (data) => {
+    const currentDb = db;
+    const user = get().firebaseUser;
+    if (!currentDb || !user) throw new Error("Not authenticated or DB not initialized");
+    
+    const projectRef = await addDoc(collection(currentDb, 'projects'), {
+      ...data,
+      ownerId: user.uid,
+      createdAt: serverTimestamp(),
+      feedbackCount: 0,
+      isVerified: false
+    });
+
+    return projectRef.id;
   }
 }));

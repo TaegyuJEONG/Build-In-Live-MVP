@@ -337,6 +337,8 @@ export function FeedbackSystem({
     }
   }, []);
 
+
+
   return (
     <>
       {/* Markers Layer - Hidden on Comments View */}
@@ -398,15 +400,14 @@ export function FeedbackSystem({
       )}
 
       {/* Side Feed Panel */}
-      {viewMode !== 'main' && (
-        <div 
-          className={`${viewMode === 'comments' ? 'relative w-full h-full' : 'absolute right-0 top-0 bottom-0 w-full md:w-[400px] border-l translate-x-full'} bg-[#131313] border-[#2A2A2A] z-[9003] shadow-2xl flex flex-col p-0 transition-all duration-300 ease-in-out pointer-events-auto ${
-            viewMode === 'comments' ? '' : (isFeedOpen || activeMarkerId ? 'translate-x-0' : '')
-          }`}
-        >
-          {!isMobile && viewMode !== 'comments' && viewMode !== 'main' && (
-            <button 
-              onClick={() => {
+      <div 
+        className={`${viewMode === 'comments' ? 'relative w-full h-full' : 'absolute right-0 top-0 bottom-0 w-full md:w-[400px] border-l'} bg-[#131313] border-[#2A2A2A] z-[9003] shadow-2xl flex flex-col p-0 transition-all duration-300 ease-in-out pointer-events-auto ${
+          viewMode === 'comments' ? '' : (isFeedOpen || activeMarkerId ? 'translate-x-0' : 'translate-x-full')
+        }`}
+      >
+        {!isMobile && viewMode !== 'comments' && (
+          <button 
+            onClick={() => {
               if (isFeedOpen || activeMarkerId) {
                 setIsFeedOpen(false);
                 handleSelection(null);
@@ -519,7 +520,7 @@ export function FeedbackSystem({
           })}
         </div>
       </div>
-      )}
+
 
       {isCapturing && (
         <div className="fixed inset-0 z-[10001] flex items-center justify-center pointer-events-none">
