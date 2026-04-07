@@ -60,10 +60,13 @@ export type Project = {
   techStacks?: string[];
   demoVideo?: string;
   isVerified?: boolean;
+  hasIssue?: boolean;
+  feedbackCount: number;
   about?: string;
   useCases?: string[];
   targetAudience?: string[];
   platforms?: string[];
+  createdAt?: any;
 };
 
 interface AppState {

@@ -1,6 +1,6 @@
 "use client"
 
-import { Radio, Terminal, Cpu, Plus, Minus, Layers, SquarePlus, BarChart3, Settings, Focus, AlertTriangle, Trash2, PenSquare, Hand } from "lucide-react"
+import { Radio, Terminal, Cpu, Plus, Minus, Layers, SquarePlus, BarChart3, Settings, Focus, AlertTriangle, Trash2, PenSquare, Hand, X, Upload, Loader2, Image as ImageIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/BottomNav"
 import React, { useEffect, useState, useRef, useMemo } from "react"
@@ -8,6 +8,8 @@ import { useStore } from "@/lib/store"
 import { RoomProvider, useStorage, useOthers } from "@/liveblocks.config"
 import { ClientSideSuspense } from "@liveblocks/react"
 import { LiveList, LiveMap } from "@liveblocks/client"
+import { storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // Company logos as SVG components - lesser known companies
 const CompanyLogos: Record<string, React.ReactNode> = {
@@ -687,8 +689,26 @@ export default function BuildInLive() {
     techStacks: '',
     demoVideo: ''
   });
-  const { deleteProject, updateProject } = useStore();
+  const { deleteProject, updateProject, addProject } = useStore();
   
+  // New Project Modal States
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<any | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [screenshotPreviews, setScreenshotPreviews] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleCloseModal = () => {
+    setIsAddModalOpen(false);
+    setLogoFile(null);
+    setLogoPreview(null);
+    setScreenshotFiles([]);
+    setScreenshotPreviews([]);
+    setEditingProject(null);
+  };
+
   React.useEffect(() => {
     setMounted(true)
     init();
@@ -883,7 +903,7 @@ export default function BuildInLive() {
         <div className="flex gap-2 relative">
           <button 
             className="hover:bg-white/5 p-2 transition-colors"
-            onClick={() => router.push('/onboarding')}
+            onClick={() => setIsAddModalOpen(true)}
           >
             <SquarePlus className="w-[18px] h-[18px] text-white/40" />
           </button>
@@ -1467,6 +1487,256 @@ export default function BuildInLive() {
                 CANCEL
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Project Creation Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={handleCloseModal} />
+          <div className="relative w-full max-w-4xl bg-[#0e0e0e] border border-white/10 shadow-2xl flex flex-col font-mono text-white">
+             {/* Header */}
+             <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center">
+                <div className="text-xs font-black tracking-[0.3em] uppercase">
+                  {editingProject ? `Edit_Project // ${editingProject.name}` : "Add_New_Project"}
+                </div>
+                <div className="flex items-center gap-6">
+                   {editingProject && (
+                      <button 
+                         type="button" 
+                         onClick={async () => {
+                           if (confirm(`Are you sure you want to delete ${editingProject.name}?`)) {
+                             await useStore.getState().deleteProject(editingProject.id);
+                             handleCloseModal();
+                           }
+                         }} 
+                         className="flex items-center gap-2 text-[#F95A56]/60 hover:text-[#F95A56] text-[9px] font-black uppercase tracking-widest transition-colors group/del"
+                      >
+                         <Trash2 className="w-3.5 h-3.5 group-hover/del:scale-110 transition-transform" />
+                         <span className="hidden sm:inline">Delete_Project</span>
+                      </button>
+                   )}
+                   <button onClick={handleCloseModal} className="hover:text-[#F95A56] transition-colors"><X className="w-5 h-5"/></button>
+                </div>
+             </div>
+
+             {/* Form Content */}
+             <form onSubmit={async (e) => {
+                e.preventDefault();
+                setIsSubmitting(true);
+                const formData = new FormData(e.currentTarget);
+                
+                try {
+                  const uid = firebaseUser?.uid;
+                  if (!uid) return;
+
+                  // 1. Upload Logo if exists
+                  let logoUrl = editingProject?.logoUrl || "/images/desk/vibounder-logo.png";
+                  if (logoFile && storage) {
+                    const logoRef = ref(storage, `projects/${uid}/${Date.now()}_logo_${logoFile.name}`);
+                    const uploadResult = await uploadBytes(logoRef, logoFile);
+                    logoUrl = await getDownloadURL(uploadResult.ref);
+                  }
+
+                  // 2. Upload Screenshots
+                  const uploadedScreenshotUrls: string[] = [];
+                  if (screenshotFiles.length > 0 && storage) {
+                    for (const file of screenshotFiles) {
+                      const ssRef = ref(storage, `projects/${uid}/${Date.now()}_ss_${file.name}`);
+                      const uploadResult = await uploadBytes(ssRef, file);
+                      const url = await getDownloadURL(uploadResult.ref);
+                      uploadedScreenshotUrls.push(url);
+                    }
+                  }
+
+                  // 3. Combine and validate
+                  const finalScreenshots = [
+                    ...(editingProject ? editingProject.screenshots.filter((s: string) => screenshotPreviews.includes(s)) : []),
+                    ...uploadedScreenshotUrls
+                  ];
+
+                  const projectData = {
+                    name: formData.get('name') as string,
+                    url: formData.get('url') as string,
+                    logoUrl: logoUrl,
+                    screenshots: finalScreenshots,
+                    demoVideo: formData.get('demoVideo') as string || "",
+                    about: formData.get('about') as string || "",
+                    categories: (formData.get('categories') as string || "").split(',').map(s => s.trim()).filter(Boolean),
+                    useCases: (formData.get('useCases') as string || "").split(',').map(s => s.trim()).filter(Boolean),
+                    targetAudience: (formData.get('targetAudience') as string || "").split(',').map(s => s.trim()).filter(Boolean),
+                    platforms: (formData.get('platforms') as string || "").split(',').map(s => s.trim()).filter(Boolean),
+                    techStacks: (formData.get('techStacks') as string || "").split(',').map(s => s.trim()).filter(Boolean),
+                  };
+
+                  if (editingProject) {
+                    await useStore.getState().updateProject(editingProject.id, projectData as any);
+                  } else {
+                    await addProject(projectData as any);
+                  }
+                  
+                  handleCloseModal();
+                } catch (err) {
+                  console.error(err);
+                } finally {
+                  setIsSubmitting(false);
+                }
+             }} className="p-8 flex flex-col gap-16 overflow-y-auto max-h-[75vh] custom-scrollbar">
+                
+                {/* Left Monitor Config (Main Screen) */}
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                   <div className="flex items-center gap-4">
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-[#F95A56]/20 to-transparent"></div>
+                      <div className="text-[11px] font-black text-[#F95A56] tracking-[0.4em] uppercase opacity-70">
+                         Step_01 // Left_Monitor_Config
+                      </div>
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-[#F95A56]/20 to-transparent"></div>
+                   </div>
+
+                   <div className="flex flex-col gap-10 max-w-2xl mx-auto w-full">
+                      <div className="space-y-8">
+                        {/* Logo Upload */}
+                        <div className="space-y-4">
+                          <label className="text-[9px] uppercase tracking-[0.2em] font-black text-white/30 border-l-2 border-[#F95A56]/50 pl-2">Project_Identity</label>
+                          <div className="flex flex-col items-center">
+                             <label className="group/logo relative cursor-pointer">
+                                <div className="w-40 h-40 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center relative overflow-hidden group/logo shadow-2xl backdrop-blur-xl">
+                                    {logoPreview ? (
+                                       <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+                                    ) : (
+                                       <div className="flex flex-col items-center gap-3 opacity-30 group-hover/logo:opacity-100 transition-opacity">
+                                          <ImageIcon className="w-10 h-10" />
+                                          <span className="text-[8px] font-black tracking-widest text-[#F95A56]">UPLOAD_LOGO</span>
+                                       </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/logo:opacity-100 transition-opacity flex items-center justify-center">
+                                       <Upload className="w-6 h-6 text-white" />
+                                    </div>
+                                </div>
+                                <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-[#F95A56] flex items-center justify-center shadow-lg border-2 border-black group-hover/logo:scale-110 transition-transform">
+                                   <Plus className="w-4 h-4 text-white" />
+                                </div>
+                                <input name="logo" type="file" accept="image/*" className="hidden" onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setLogoFile(file);
+                                    setLogoPreview(URL.createObjectURL(file));
+                                  }
+                                }} />
+                             </label>
+                             <div className="mt-4 text-[9px] font-black uppercase tracking-[0.3em] text-white/20">
+                                {logoFile ? logoFile.name : "Square_Ratio_Preferred"}
+                             </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-6">
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] uppercase tracking-widest text-white/40">Project Name *</label>
+                            <input name="name" required defaultValue={editingProject?.name} className="w-full bg-white/5 border-b border-white/20 p-2 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="MY_COOL_UI" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] uppercase tracking-widest text-white/40">Deployment URL *</label>
+                            <input name="url" required defaultValue={editingProject?.url} className="w-full bg-white/5 border-b border-white/20 p-2 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="https://..." />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] uppercase tracking-widest text-white/40">Demo Video (Youtube Embed URL)</label>
+                          <input name="demoVideo" defaultValue={editingProject?.demoVideo} className="w-full bg-white/5 border-b border-white/20 p-2 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="https://www.youtube.com/embed/..." />
+                        </div>
+
+                        {/* Multiple Screenshot Upload */}
+                        <div className="space-y-4">
+                          <label className="text-[9px] uppercase tracking-[0.2em] font-black text-white/30 border-l-2 border-[#F95A56]/50 pl-2">Screenshots_Gallery</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                             {screenshotPreviews.map((pre, i) => (
+                               <div key={i} className="aspect-video rounded bg-black/40 border border-white/10 overflow-hidden relative group shadow-lg">
+                                  <img src={pre} className="w-full h-full object-cover" />
+                                  <button type="button" onClick={() => {
+                                      setScreenshotFiles(prev => prev.filter((_, idx) => idx !== i));
+                                      setScreenshotPreviews(prev => prev.filter((_, idx) => idx !== i));
+                                  }} className="absolute inset-0 bg-[#F95A56]/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                    <X className="w-5 h-5 text-white" />
+                                  </button>
+                               </div>
+                             ))}
+                          </div>
+                          <label>
+                            <div className="w-full py-12 border-2 border-dashed border-white/10 hover:border-[#F95A56]/30 hover:bg-[#F95A56]/5 transition-all flex flex-col items-center justify-center gap-3 cursor-pointer rounded-xl group/ss">
+                               <Upload className="w-8 h-8 text-white/10 group-hover/ss:text-[#F95A56]/40 group-hover/ss:scale-110 transition-all" />
+                               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 group-hover/ss:text-white/40">Deploy_Multiple_Screenshots_</span>
+                            </div>
+                            <input name="screenshots" type="file" multiple accept="image/*" className="hidden" onChange={(e) => {
+                                const files = Array.from(e.target.files || []);
+                                setScreenshotFiles(prev => [...prev, ...files]);
+                                const newPreviews = files.map(f => URL.createObjectURL(f));
+                                setScreenshotPreviews(prev => [...prev, ...newPreviews]);
+                            }} />
+                          </label>
+                        </div>
+                      </div>
+                   </div>
+                </div>
+
+                {/* Right Monitor Config (Secondary Screen) */}
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
+                    <div className="flex items-center gap-4">
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-[#F95A56]/20 to-transparent"></div>
+                      <div className="text-[11px] font-black text-[#F95A56] tracking-[0.4em] uppercase opacity-70">
+                         Step_02 // Right_Monitor_Config
+                      </div>
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-[#F95A56]/20 to-transparent"></div>
+                   </div>
+
+                   <div className="flex flex-col gap-10 max-w-2xl mx-auto w-full">
+                      <div className="space-y-10">
+                        {/* Executive Summary */}
+                        <div className="space-y-4">
+                          <label className="text-[9px] uppercase tracking-[0.2em] font-black text-white/30 border-l-2 border-[#F95A56]/50 pl-2">Executive_Summary</label>
+                          <textarea name="about" defaultValue={editingProject?.about} className="w-full bg-white/5 border border-white/10 p-5 text-sm focus:border-[#F95A56] outline-none transition-all h-36 resize-none rounded-xl leading-relaxed shadow-inner" placeholder="Tell us more about this project... It will appear on the secondary monitor." />
+                        </div>
+                        
+                        {/* Detailed Specs */}
+                        <div className="space-y-8">
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] uppercase tracking-widest text-white/40">Use Cases</label>
+                              <input name="useCases" defaultValue={editingProject?.useCases?.join(', ')} className="w-full bg-white/5 border-b border-white/20 p-3 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="Internal monitoring, Feedback collection" />
+                           </div>
+                           
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] uppercase tracking-widest text-white/40">Target Audience</label>
+                              <input name="targetAudience" defaultValue={editingProject?.targetAudience?.join(', ')} className="w-full bg-white/5 border-b border-white/20 p-3 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="Developers, PMs, Stakeholders" />
+                           </div>
+
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] uppercase tracking-widest text-white/40">Categories</label>
+                              <input name="categories" defaultValue={editingProject?.categories?.join(', ')} className="w-full bg-white/5 border-b border-white/20 p-3 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="SaaS, AI, Productivity" />
+                           </div>
+
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] uppercase tracking-widest text-white/40">Tech Stacks</label>
+                              <input name="techStacks" defaultValue={editingProject?.techStacks?.join(', ')} className="w-full bg-white/5 border-b border-white/20 p-3 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="Next.js, Tailwind, Firebase" />
+                           </div>
+
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] uppercase tracking-widest text-white/40">Platforms</label>
+                              <input name="platforms" defaultValue={editingProject?.platforms?.join(', ')} className="w-full bg-white/5 border-b border-white/20 p-3 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="Web, Mobile, Desktop" />
+                           </div>
+                        </div>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="pt-12 border-t border-white/10 flex justify-between gap-6 pb-6 max-w-2xl mx-auto w-full">
+                   <button type="button" onClick={handleCloseModal} className="px-10 py-4 text-[10px] uppercase tracking-widest hover:text-white/60 transition-colors font-black">Close_Portal</button>
+                   <button disabled={isSubmitting} type="submit" className="px-16 py-4 bg-[#F95A56] hover:brightness-110 text-white font-black text-[12px] uppercase tracking-[0.3em] transition-all disabled:opacity-50 flex items-center gap-3 shadow-[0_15px_40px_rgba(249,90,86,0.3)] rounded-sm">
+                      {isSubmitting && <Loader2 className="w-4 h-4 animate-spin"/>}
+                      {isSubmitting ? 'Syncing_Data...' : editingProject ? 'Update_Provisioning →' : 'Provision_Showcase →'}
+                   </button>
+                </div>
+             </form>
           </div>
         </div>
       )}
