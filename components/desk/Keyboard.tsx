@@ -10,6 +10,8 @@ interface KeyboardProps {
   onPrev: () => void;
   onNext: () => void;
   onAddProject: () => void;
+  isVerified?: boolean;
+  isOwner?: boolean;
 }
 
 const Keyboard: React.FC<KeyboardProps> = ({ 
@@ -17,7 +19,9 @@ const Keyboard: React.FC<KeyboardProps> = ({
   onViewModeChange, 
   onPrev, 
   onNext,
-  onAddProject
+  onAddProject,
+  isVerified = false,
+  isOwner = false
 }) => {
   const [isLeftActive, setIsLeftActive] = React.useState(false);
   const [isRightActive, setIsRightActive] = React.useState(false);
@@ -63,27 +67,29 @@ const Keyboard: React.FC<KeyboardProps> = ({
           <MoveLeft strokeWidth={3} className="w-6 h-6 text-black/40 group-hover:text-black/80 transition-colors" />
         </PremiumKey>
 
-        {/* LIVE Key */}
-        <PremiumKey 
-          active={viewMode === "live"} 
-          onClick={() => onViewModeChange("live")}
-          activeColor="#ef4444" // Vibrant Point Red
-          glowColor="rgba(239, 68, 68, 0.6)"
-          className="w-24 h-24"
-        >
-          <div className="flex flex-col items-center gap-1">
-            <Radio strokeWidth={3} className={cn(
-              "w-5 h-5 transition-all duration-300",
-              viewMode === "live" ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" : "text-black/30"
-            )} />
-            <span className={cn(
-              "text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 shadow-sm",
-              viewMode === "live" ? "text-white" : "text-black/40"
-            )}>
-              LIVE
-            </span>
-          </div>
-        </PremiumKey>
+        {/* LIVE Key - Only show if verified OR if current user is owner */}
+        {(isVerified || isOwner) && (
+          <PremiumKey 
+            active={viewMode === "live"} 
+            onClick={() => onViewModeChange("live")}
+            activeColor="#ef4444" // Vibrant Point Red
+            glowColor="rgba(239, 68, 68, 0.6)"
+            className="w-24 h-24"
+          >
+            <div className="flex flex-col items-center gap-1">
+              <Radio strokeWidth={3} className={cn(
+                "w-5 h-5 transition-all duration-300",
+                viewMode === "live" ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" : "text-black/30"
+              )} />
+              <span className={cn(
+                "text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 shadow-sm",
+                viewMode === "live" ? "text-white" : "text-black/40"
+              )}>
+                LIVE
+              </span>
+            </div>
+          </PremiumKey>
+        )}
 
         {/* SCREENSHOTS Key */}
         <PremiumKey 

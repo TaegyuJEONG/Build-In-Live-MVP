@@ -673,8 +673,37 @@ export default function BuildInLive() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [selectedOwnerName, setSelectedOwnerName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedCube?.id) {
+      const p = projects.find(proj => proj.id === selectedCube.id);
+      if (p) {
+        const fetchOwner = async () => {
+          try {
+            const { doc, getDoc } = await import("firebase/firestore");
+            const { db } = await import("@/lib/firebase");
+            if (db) {
+              const docSnap = await getDoc(doc(db, "users", p.ownerId));
+              if (docSnap.exists()) {
+                setSelectedOwnerName(docSnap.data().displayName || "User");
+              } else {
+                setSelectedOwnerName("User");
+              }
+            }
+          } catch (e) {
+            console.error("Error fetching owner name:", e);
+            setSelectedOwnerName("User");
+          }
+        };
+        fetchOwner();
+      }
+    } else {
+      setSelectedOwnerName(null);
+    }
+  }, [selectedCube?.id, projects]);
   const [showAnalysis, setShowAnalysis] = useState(true);
   const [showProjectDeleteConfirm, setShowProjectDeleteConfirm] = useState(false);
   const [isEditingProject, setIsEditingProject] = useState(false);
@@ -824,7 +853,8 @@ export default function BuildInLive() {
       issueMemo: cube.hasIssue ? p.issueMemo : null,
       description: p.description,
       isOwner: cube.isOwner,
-      isVerified: cube.isVerified
+      isVerified: cube.isVerified,
+      ownerId: p.ownerId
     };
   };
 
@@ -1316,16 +1346,24 @@ export default function BuildInLive() {
 
                   {/* Call to Action */}
                   <button 
-                    disabled={!data.isVerified && !data.isOwner && firebaseUser?.email !== 'taegyujeong@gmail.com'}
-                    className={`w-full py-3 md:py-4 mt-1 md:mt-2 font-black tracking-[0.2em] md:tracking-[0.3em] text-[8px] md:text-[10px] transition-all uppercase border-none cursor-pointer
-                      ${(!data.isVerified && !data.isOwner && firebaseUser?.email !== 'taegyujeong@gmail.com') 
-                        ? 'bg-white/5 text-white/20 cursor-not-allowed' 
-                        : 'bg-white text-black hover:bg-white/90 active:scale-[0.98]'}`}
-                    onClick={() => router.push(`/feedback/${data.id}`)}
+                    className="w-full py-3 md:py-4 mt-1 md:mt-2 font-black tracking-[0.2em] md:tracking-[0.3em] text-[8px] md:text-[10px] transition-all uppercase border-none cursor-pointer bg-white text-black hover:bg-white/90 active:scale-[0.98]"
+                    onClick={() => {
+                      if (!data.isVerified && (data.isOwner || firebaseUser?.email === 'taegyujeong@gmail.com')) {
+                        router.push(`/feedback/${data.id}`);
+                        return;
+                      }
+                      
+                      // Save for BottomNav
+                      localStorage.setItem('lastVisitedDeskId', data.id);
+                      localStorage.setItem('lastVisitedDeskOwnerId', data.ownerId);
+                      localStorage.setItem('lastVisitedDeskOwnerName', selectedOwnerName || "User");
+                      
+                      router.push(`/desk/${data.ownerId}?projectId=${data.id}`);
+                    }}
                   >
                     {!data.isVerified && (data.isOwner || firebaseUser?.email === 'taegyujeong@gmail.com')
                       ? 'ACTIVATE_COMMENTS_SDK →'
-                      : 'ENTER_FEEDBACK_TERMINAL'}
+                      : `ENTER_${data.name}_DESK`}
                   </button>
                 </>
               )}
@@ -1404,10 +1442,10 @@ export default function BuildInLive() {
                     projectSnapshots.forEach((pDoc) => {
                       batch.delete(pDoc.ref);
                     });
+                    
+                    // 2. Add User Doc cleanup to the same atomic batch
+                    batch.delete(doc(db, "users", user.uid));
                     await batch.commit();
-
-                    // 2. Cleanup User Doc
-                    await deleteDoc(doc(db, "users", user.uid));
 
                     // 3. Finally delete the user account from Firebase Auth
                     // Note: This will fail if they haven't logged in recently.

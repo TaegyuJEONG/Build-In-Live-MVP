@@ -1,16 +1,15 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams, useParams, useRouter } from "next/navigation";
 import TopNav from "@/components/desk/TopNav";
 import Monitor from "@/components/desk/Monitor";
 import SecondaryScreen from "@/components/desk/SecondaryScreen";
 import Keyboard from "@/components/desk/Keyboard";
 import { BottomNav } from "@/components/BottomNav";
 import { cn } from "@/lib/utils";
-import { Plus, Minus, Focus } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
+import { Plus, Minus, Focus, X, Upload, Loader2, Image as ImageIcon, Trash2 } from "lucide-react";
 import { useStore, Project as StoreProject } from "@/lib/store";
-import { X, Upload, Loader2, Image as ImageIcon, Trash2 } from "lucide-react";
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -31,6 +30,7 @@ export type Project = {
   useCases: string[];
   targetAudience: string[];
   platforms: string[];
+  isVerified?: boolean;
 };
 
 // Map our Firestore Project to the Desk Project type
@@ -51,6 +51,7 @@ const mapProject = (p: any) => ({
   useCases: p.useCases || [],
   targetAudience: p.targetAudience || [],
   platforms: p.platforms || [],
+  isVerified: p.isVerified
 });
 
 // Hardcoded fallback projects for specific users or as a demo
@@ -77,6 +78,7 @@ const FALLBACK_PROJECTS = [
     useCases: [],
     targetAudience: [],
     platforms: [],
+    isVerified: true
   },
   {
     id: "jtg-ai",
@@ -94,6 +96,7 @@ const FALLBACK_PROJECTS = [
     useCases: [],
     targetAudience: [],
     platforms: [],
+    isVerified: true
   },
   {
     id: "tsf",
@@ -110,6 +113,7 @@ const FALLBACK_PROJECTS = [
     useCases: [],
     targetAudience: [],
     platforms: [],
+    isVerified: true
   },
 ];
 
@@ -123,6 +127,8 @@ export default function UserDeskPage() {
   const [viewMode, setViewMode] = useState<"screenshots" | "live" | "demo">("screenshots");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const searchParams = useSearchParams();
+  const queryProjectId = searchParams.get('projectId');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Upload States
@@ -133,6 +139,7 @@ export default function UserDeskPage() {
   const [scale, setScale] = useState(1.0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const isOwner = firebaseUser?.uid === uid;
   const lastMousePos = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -147,21 +154,23 @@ export default function UserDeskPage() {
     // If it's taegyujeong's page ... OR if it's ANY user with no projects yet
     // BUT! If the current logged in user IS the owner and they have no projects,
     // we should show a blank state instead of taegyujeong's content to avoid confusion.
-    const isOwner = firebaseUser?.uid === uid;
     
     if (filtered.length === 0) {
       if (isOwner) return []; // Owner sees blank desk to upload
       return FALLBACK_PROJECTS; // Others see fallback demo
     }
     
-    return filtered;
+    return filtered as Project[];
   }, [projects, uid, firebaseUser]);
 
   useEffect(() => {
-    if (userProjects.length > 0 && !selectedProjectId) {
+    // Priority: 1. Query Param, 2. Existing Selection, 3. First Project
+    if (queryProjectId && userProjects.some(p => p.id === queryProjectId)) {
+      setSelectedProjectId(queryProjectId);
+    } else if (userProjects.length > 0 && !selectedProjectId) {
       setSelectedProjectId(userProjects[0].id);
     }
-  }, [userProjects]);
+  }, [userProjects, queryProjectId]);
 
   const handleEditProject = useCallback((project: Project) => {
     setEditingProject(project);
@@ -308,7 +317,13 @@ export default function UserDeskPage() {
           <div className="w-full max-w-2xl">
             <Keyboard 
               viewMode={viewMode} 
-              onViewModeChange={setViewMode} 
+              onViewModeChange={(mode) => {
+                if (mode === "live" && selectedProject && !selectedProject.isVerified && isOwner) {
+                  router.push(`/onboarding?projectId=${selectedProject.id}&step=ADD_SDK_SCRIPT`);
+                  return;
+                }
+                setViewMode(mode);
+              }} 
               onPrev={() => {
                 if (userProjects.length === 0) return;
                 const idx = userProjects.findIndex(p => p.id === selectedProjectId);
@@ -322,6 +337,8 @@ export default function UserDeskPage() {
                 setSelectedProjectId(userProjects[nextIdx].id);
               }}
               onAddProject={() => setIsAddModalOpen(true)}
+              isVerified={selectedProject?.isVerified}
+              isOwner={isOwner}
             />
           </div>
         </main>

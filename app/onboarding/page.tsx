@@ -5,7 +5,7 @@ import { useStore } from "@/lib/store"
 import { db } from "@/lib/firebase"
 import { collection, addDoc, doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Globe, FileText, HelpCircle, Check, Copy, AlertTriangle, Terminal, ChevronDown, ChevronUp } from "lucide-react"
+import { Globe, FileText, HelpCircle, Check, Copy, AlertTriangle, Terminal, ChevronDown, ChevronUp, User } from "lucide-react"
 
 export default function OnboardingPage() {
   const { firebaseUser } = useStore()
@@ -19,7 +19,8 @@ export default function OnboardingPage() {
     url: "",
     name: "",
     description: "",
-    guide: ""
+    guide: "",
+    userName: ""
   })
   const [createdProjectId, setCreatedProjectId] = useState("")
   const [copied, setCopied] = useState<string | null>(null)
@@ -30,7 +31,7 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (projectIdParam) {
       setCreatedProjectId(projectIdParam);
-      setStep(2); // Jump directly to SDK step
+      setStep(3); // Jump directly to SDK step (now Step 3)
     }
   }, [projectIdParam]);
 
@@ -45,12 +46,13 @@ export default function OnboardingPage() {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
-            setFormData({
+            setFormData(prev => ({
+              ...prev,
               name: data.name || "",
               url: data.url || "",
               description: data.description || "",
               guide: data.guide || ""
-            });
+            }));
           }
         } catch (e) {
           console.error("Error fetching project for onboarding:", e);
@@ -88,7 +90,7 @@ export default function OnboardingPage() {
       }, { merge: true })
 
       setCreatedProjectId(projectRef.id)
-      setStep(2)
+      setStep(3)
     } catch (err) {
       console.error(err)
     } finally {
@@ -144,6 +146,23 @@ export default function OnboardingPage() {
       }, { merge: true })
       
       router.push("/")
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleIdentitySubmit = async (e: any) => {
+    if (e && e.preventDefault) e.preventDefault()
+    if (!firebaseUser || !db) return
+    setLoading(true)
+    try {
+      await setDoc(doc(db, "users", firebaseUser.uid), {
+        displayName: formData.userName || firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+      }, { merge: true })
+      
+      setStep(2)
     } catch (err) {
       console.error(err)
     } finally {
@@ -238,7 +257,7 @@ Please review the project structure, identify all relevant files, and apply thes
               <button
                 type="button"
                 disabled={loading}
-                onClick={() => setStep(2)}
+                onClick={() => setStep(3)}
                 className="w-full h-14 bg-transparent border border-white/10 text-white/50 hover:text-white hover:bg-white/5 font-black tracking-[0.3em] text-[10px] transition-all uppercase disabled:opacity-50"
               >
                 CANCEL
@@ -250,7 +269,7 @@ Please review the project structure, identify all relevant files, and apply thes
     )
   }
 
-  if (step === 2) {
+  if (step === 3) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-4 font-mono relative overflow-hidden">
         {/* Background Gradients similar to login */}
@@ -296,7 +315,7 @@ Please review the project structure, identify all relevant files, and apply thes
             <div className="space-y-3">
             <button
               disabled={loading}
-              onClick={() => setStep(3)}
+              onClick={() => setStep(4)}
               className="w-full h-14 bg-white text-black font-black tracking-[0.3em] text-xs hover:bg-white/90 transition-all uppercase flex items-center justify-center disabled:opacity-50 border-4 border-transparent active:scale-[0.98]"
             >
               I ADDED THE SCRIPT →
@@ -323,7 +342,7 @@ Please review the project structure, identify all relevant files, and apply thes
     )
   }
 
-  if (step === 3) {
+  if (step === 4) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-4 font-mono relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#F95A56]/5 rounded-full blur-[120px] pointer-events-none" />
@@ -348,7 +367,7 @@ Please review the project structure, identify all relevant files, and apply thes
               YES, I REDEPLOYED →
             </button>
             <button
-              onClick={() => setStep(2)}
+              onClick={() => setStep(3)}
               className="w-full h-14 bg-transparent border border-white/10 text-white/50 hover:text-white hover:bg-white/5 font-black tracking-[0.3em] text-[10px] transition-all uppercase"
             >
               NOT YET, TAKE ME BACK
@@ -367,97 +386,157 @@ Please review the project structure, identify all relevant files, and apply thes
     )
   }
 
+  if (step === 2) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-mono">
+        <div className="w-full max-w-xl bg-[#131313] border border-white/10 p-8 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="mb-10">
+            <h1 className="text-xl font-black tracking-tighter text-white uppercase flex items-center gap-3">
+              <Globe className="w-6 h-6 text-[#F95A56]" />
+              PROVISION_NEW_PROJECT
+            </h1>
+            <p className="text-[10px] tracking-widest text-white/40 mt-2 uppercase">
+              Initialize your live monitoring environment
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] tracking-[0.2em] text-white/50 uppercase block">Project Name</label>
+              <div className="relative">
+                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                <input
+                  required
+                  className="w-full bg-transparent border-b border-white/20 px-10 py-3 text-white text-sm focus:border-white focus:outline-none transition-colors"
+                  placeholder="MY_COOL_STARTUP"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] tracking-[0.2em] text-white/50 uppercase block">
+                Deployment URL <span className="text-[#F95A56]">*</span>
+              </label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                <input
+                  type="text"
+                  required
+                  className="w-full bg-transparent border-b border-white/20 px-10 py-3 text-white text-sm focus:border-white focus:outline-none transition-colors"
+                  placeholder="https://myproject.com"
+                  value={formData.url}
+                  onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                />
+              </div>
+              <p className="text-[9px] text-white/30 pl-1">You can enter with or without https:// — we'll handle it.</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] tracking-[0.2em] text-white/50 uppercase block">Description (Optional)</label>
+              <div className="relative">
+                <HelpCircle className="absolute left-3 top-3 w-4 h-4 text-white/20" />
+                <textarea
+                  className="w-full bg-transparent border-b border-white/20 px-10 py-3 text-white text-sm focus:border-white focus:outline-none transition-colors min-h-[80px] resize-none"
+                  placeholder="What is this project about?"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] tracking-[0.2em] text-white/50 uppercase block">Feedback Guide (Optional)</label>
+              <div className="relative">
+                <HelpCircle className="absolute left-3 top-3 w-4 h-4 text-white/20" />
+                <textarea
+                  className="w-full bg-transparent border-b border-white/20 px-10 py-3 text-white text-sm focus:border-white focus:outline-none transition-colors min-h-[80px] resize-none"
+                  placeholder="e.g. Click COMMENTS button and tap anywhere on the page to drop a marker..."
+                  value={formData.guide}
+                  onChange={(e) => setFormData({ ...formData, guide: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                disabled={loading}
+                type="submit"
+                className="w-full h-14 bg-white text-black font-black tracking-[0.3em] text-xs hover:bg-white/90 disabled:opacity-50 transition-all uppercase mt-4"
+              >
+                {loading ? "INITIALIZING..." : "GENERATE_ENVIRONMENT →"}
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setStep(1)}
+                className="w-full h-14 bg-transparent border border-white/10 text-white/50 hover:text-white hover:bg-white/5 font-black tracking-[0.3em] text-[10px] transition-all uppercase disabled:opacity-50"
+              >
+                GO BACK
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-mono">
-      <div className="w-full max-w-xl bg-[#131313] border border-white/10 p-8 shadow-2xl">
+      <div className="w-full max-w-xl bg-[#131313] border border-white/10 p-8 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="mb-10">
           <h1 className="text-xl font-black tracking-tighter text-white uppercase flex items-center gap-3">
-            <Globe className="w-6 h-6 text-[#F95A56]" />
-            PROVISION_NEW_PROJECT
+            <User className="w-6 h-6 text-[#F95A56]" />
+            IDENTIFY_USER
           </h1>
           <p className="text-[10px] tracking-widest text-white/40 mt-2 uppercase">
-            Initialize your live monitoring environment
+            Initialize your profile identity
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleIdentitySubmit} className="space-y-8">
           <div className="space-y-2">
-            <label className="text-[10px] tracking-[0.2em] text-white/50 uppercase block">Project Name</label>
+            <label className="text-[10px] tracking-[0.2em] text-white/50 uppercase block">Name</label>
             <div className="relative">
-              <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
               <input
                 required
                 className="w-full bg-transparent border-b border-white/20 px-10 py-3 text-white text-sm focus:border-white focus:outline-none transition-colors"
-                placeholder="MY_COOL_STARTUP"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="ENTER_YOUR_NAME"
+                value={formData.userName}
+                onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] tracking-[0.2em] text-white/50 uppercase block">
-              Deployment URL <span className="text-[#F95A56]">*</span>
-            </label>
-            <div className="relative">
-              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
-              <input
-                type="text"
-                required
-                className="w-full bg-transparent border-b border-white/20 px-10 py-3 text-white text-sm focus:border-white focus:outline-none transition-colors"
-                placeholder="https://myproject.com"
-                value={formData.url}
-                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-              />
-            </div>
-            <p className="text-[9px] text-white/30 pl-1">You can enter with or without https:// — we'll handle it.</p>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] tracking-[0.2em] text-white/50 uppercase block">Description (Optional)</label>
-            <div className="relative">
-              <HelpCircle className="absolute left-3 top-3 w-4 h-4 text-white/20" />
-              <textarea
-                className="w-full bg-transparent border-b border-white/20 px-10 py-3 text-white text-sm focus:border-white focus:outline-none transition-colors min-h-[80px] resize-none"
-                placeholder="What is this project about?"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] tracking-[0.2em] text-white/50 uppercase block">Feedback Guide (Optional)</label>
-            <div className="relative">
-              <HelpCircle className="absolute left-3 top-3 w-4 h-4 text-white/20" />
-              <textarea
-                className="w-full bg-transparent border-b border-white/20 px-10 py-3 text-white text-sm focus:border-white focus:outline-none transition-colors min-h-[80px] resize-none"
-                placeholder="e.g. Click COMMENTS button and tap anywhere on the page to drop a marker..."
-                value={formData.guide}
-                onChange={(e) => setFormData({ ...formData, guide: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-3">
+          <div className="space-y-4 pt-4">
             <button
-              disabled={loading}
+              disabled={loading || !formData.userName.trim()}
               type="submit"
-              className="w-full h-14 bg-white text-black font-black tracking-[0.3em] text-xs hover:bg-white/90 disabled:opacity-50 transition-all uppercase mt-4"
+              className="w-full h-16 bg-white text-black font-black tracking-[0.3em] text-xs hover:bg-white/90 disabled:opacity-50 transition-all uppercase flex items-center justify-center gap-3 active:scale-[0.98] shadow-[0_10px_30px_rgba(255,255,255,0.05)]"
             >
-              {loading ? "INITIALIZING..." : "GENERATE_ENVIRONMENT →"}
+              PROVISION_NEW_PROJECT →
             </button>
+            
             <button
               type="button"
               disabled={loading}
-              onClick={handleSkip}
-              className="w-full h-14 bg-transparent border border-white/10 text-white/50 hover:text-white hover:bg-white/5 font-black tracking-[0.3em] text-[10px] transition-all uppercase disabled:opacity-50"
+              onClick={async () => {
+                if (formData.userName.trim()) {
+                  // Save name even if skipping
+                  await handleIdentitySubmit(null);
+                }
+                handleSkip();
+              }}
+              className="w-full h-16 bg-transparent border border-white/10 text-white font-black tracking-[0.3em] text-[10px] hover:bg-white/5 transition-all uppercase flex items-center justify-center gap-3"
             >
-              SKIP FOR NOW
+              EXPLORE_PLATFORM_FIRST
             </button>
           </div>
         </form>
       </div>
     </div>
   )
+
 }
