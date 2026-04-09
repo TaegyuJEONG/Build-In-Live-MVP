@@ -217,18 +217,18 @@ function VerificationWrapper({
   if (viewMode === 'comments') {
     return (
       <div className="h-screen w-screen bg-black overflow-hidden flex flex-col font-mono">
-        <header className="h-14 border-b border-white/5 bg-[#0D0D0D] flex items-center justify-between px-6 shrink-0 z-[10000]">
+        <header className="h-20 border-b border-white/10 bg-[#0D0D0D] flex items-center justify-between px-8 shrink-0 z-[10000]">
            <div className="flex items-center gap-6">
-              <HeaderStatus projectName={projectData?.name} />
+              <HeaderStatus projectName={projectData?.name} large={true} />
            </div>
            
            <div className="flex items-center gap-3">
               <button 
                 onClick={() => copyToClipboard(`https://build-in-live-mvp.vercel.app/feedback/${projectId}`, 'url')}
-                className="flex items-center justify-center gap-2 bg-white text-black text-[10px] font-black tracking-widest uppercase hover:bg-white/90 px-5 py-1.5 rounded-full shadow-[0_4px_12px_rgba(255,255,255,0.1)] hover:scale-105 active:scale-95 transition-all"
+                className="flex items-center justify-center gap-3 bg-white text-black text-[18px] font-bold tracking-widest uppercase hover:bg-white/90 px-10 py-3 rounded-full shadow-[0_8px_24px_rgba(255,255,255,0.15)] hover:scale-105 active:scale-95 transition-all"
                 title="Share Project"
               >
-                {toast?.message === 'LINK_COPIED' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+                {toast?.message === 'LINK_COPIED' ? <Check className="w-6 h-6" /> : <Share2 className="w-6 h-6" />}
                 {toast?.message === 'LINK_COPIED' ? "Copied" : "Share"}
               </button>
            </div>
@@ -648,26 +648,26 @@ function VerificationWrapper({
   );
 }
 
-function HeaderStatus({ projectName }: { projectName: string }) {
+function HeaderStatus({ projectName, large = false }: { projectName: string, large?: boolean }) {
   const markers = useStorage((root) => root.markers);
   const others = useOthers();
   const count = markers?.length || 0;
   const viewing = (others?.length || 0) + 1;
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex items-center gap-2 text-white font-mono">
-        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-        <span className="text-[10px] font-bold">{count}</span>
+    <div className={cn("flex items-center", large ? "gap-8" : "gap-3")}>
+      <div className={cn("flex items-center text-white font-mono", large ? "gap-4" : "gap-2")}>
+        <div className={cn("rounded-full bg-red-500 animate-pulse", large ? "w-4 h-4" : "w-2 h-2")} />
+        <span className={cn("font-bold", large ? "text-[24px]" : "text-[10px]")}>{count}</span>
       </div>
-      <div className="w-px h-3 bg-white/20" />
-      <div className="flex items-center gap-1.5 text-white/50 font-mono">
-        <span className="text-[8px] uppercase tracking-widest">Viewing</span>
-        <span className="text-[10px] font-bold text-white/80">{viewing}</span>
+      <div className={cn("bg-white/20", large ? "w-0.5 h-8" : "w-px h-3")} />
+      <div className={cn("flex items-center font-mono", large ? "gap-3" : "gap-1.5 text-white/50")}>
+        <span className={cn("uppercase tracking-widest", large ? "text-[12px] text-white/60" : "text-[8px]")}>Viewing</span>
+        <span className={cn("font-bold text-white/80", large ? "text-[24px]" : "text-[10px]")}>{viewing}</span>
       </div>
-      <div className="w-px h-3 bg-white/20" />
+      <div className={cn("bg-white/20", large ? "w-0.5 h-8" : "w-px h-3")} />
       <div>
-        <div className="text-[10px] font-black tracking-tighter text-white uppercase">
+        <div className={cn("font-black tracking-tighter text-white uppercase", large ? "text-[20px]" : "text-[10px]")}>
           {projectName || 'ANONYMOUS_PROJECT'}
         </div>
       </div>

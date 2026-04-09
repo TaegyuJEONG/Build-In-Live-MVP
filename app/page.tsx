@@ -8,8 +8,9 @@ import { useStore } from "@/lib/store"
 import { RoomProvider, useStorage, useOthers } from "@/liveblocks.config"
 import { ClientSideSuspense } from "@liveblocks/react"
 import { LiveList, LiveMap } from "@liveblocks/client"
-import { storage } from "@/lib/firebase";
+import { storage, db as firestoreDb } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, setDoc } from "firebase/firestore";
 
 // Company logos as SVG components - lesser known companies
 const CompanyLogos: Record<string, React.ReactNode> = {
@@ -354,6 +355,39 @@ function Fireworks3D() {
 }
 
 
+function LogoImage({ logo }: { logo: string }) {
+  const [hasError, setHasError] = useState(false);
+  
+  if (hasError) return null;
+
+  return (
+    <div 
+      className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-white/5 border border-white/10 transition-all duration-500"
+      style={{ transform: "rotateZ(90deg)" }}
+    >
+      {logo.startsWith('http') || logo.startsWith('/') ? (
+        <img 
+          src={logo} 
+          alt="Project Logo" 
+          className="w-full h-full object-cover"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        CompanyLogos[logo] && (
+          <div
+            style={{
+              color: logoColors[logo] || "#ffffff",
+              scale: "0.7"
+            }}
+          >
+            {CompanyLogos[logo]}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 interface CubeProps {
   x: number
   y: number
@@ -488,31 +522,9 @@ function Cube({ x, y, ring, delay, type, logo, visitors = 0, isHidden = false, o
             }}
           >
             {/* Logo on left face */}
-            {logo ? (
-              <div 
-                className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-white/5 border border-white/10 transition-all duration-500"
-                style={{ transform: "rotateZ(90deg)" }}
-              >
-                {logo.startsWith('http') || logo.startsWith('/') ? (
-                  <img 
-                    src={logo} 
-                    alt="Project Logo" 
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  CompanyLogos[logo] && (
-                    <div
-                      style={{
-                        color: logoColors[logo] || "#ffffff",
-                        scale: "0.7"
-                      }}
-                    >
-                      {CompanyLogos[logo]}
-                    </div>
-                  )
-                )}
-              </div>
-            ) : null}
+            {logo && (
+              <LogoImage logo={logo} />
+            )}
           </div>
           
           {/* Right Face - Red heat map based on visitors */}
@@ -676,6 +688,8 @@ export default function BuildInLive() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [selectedOwnerName, setSelectedOwnerName] = useState<string | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [reAuthNeeded, setReAuthNeeded] = useState(false);
 
   useEffect(() => {
     if (selectedCube?.id) {
@@ -743,6 +757,23 @@ export default function BuildInLive() {
     init();
     setProject('home');
   }, []);
+
+  // Sync user email to Firestore profile
+  React.useEffect(() => {
+    if (firebaseUser && firestoreDb) {
+      const syncUserEmail = async () => {
+        try {
+          const userRef = doc(firestoreDb!, "users", firebaseUser.uid);
+          await setDoc(userRef, {
+            email: firebaseUser.email
+          }, { merge: true });
+        } catch (e) {
+          console.error("Error syncing user email:", e);
+        }
+      };
+      syncUserEmail();
+    }
+  }, [firebaseUser]);
 
   // Real projects mapped to Hex Grid
   const cubePositions = useMemo(() => {
@@ -1019,37 +1050,40 @@ export default function BuildInLive() {
         >
           <Focus className="w-4 h-4" />
         </button>
-        <div className="relative">
-          <button 
-            className={`flex flex-col items-center justify-center w-12 h-12 transition-colors cursor-pointer ${isLayerMenuOpen || selectedKeyword ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-white/30'}`}
-            onClick={() => setIsLayerMenuOpen(!isLayerMenuOpen)}
-          >
-            <Layers className="w-4 h-4" />
-          </button>
-          
-          {isLayerMenuOpen && (
-            <div className="fixed left-24 top-1/2 -translate-y-1/2 w-48 h-[380px] bg-[#0a0a0a]/90 backdrop-blur-md border border-white/20 shadow-2xl z-50 overflow-hidden flex flex-col">
-              <div className="text-[10px] uppercase text-white/50 tracking-widest p-3 border-b border-white/10 bg-white/5">Filter by Keyword</div>
-              <div className="flex flex-col flex-1 overflow-y-auto w-full [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent">
-                <button 
-                  onClick={() => { setSelectedKeyword(null); setIsLayerMenuOpen(false); }} 
-                  className={`text-left text-[10px] p-3 uppercase tracking-wider transition-colors border-l-2 ${!selectedKeyword ? 'bg-white/10 text-white border-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5 border-transparent'}`}
-                >
-                  All Categories
-                </button>
-                {KEYWORD_POOL.map(kw => (
+        {/* Temporarily hidden Layer Toggle */}
+        {false && (
+          <div className="relative">
+            <button 
+              className={`flex flex-col items-center justify-center w-12 h-12 transition-colors cursor-pointer ${isLayerMenuOpen || selectedKeyword ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-white/30'}`}
+              onClick={() => setIsLayerMenuOpen(!isLayerMenuOpen)}
+            >
+              <Layers className="w-4 h-4" />
+            </button>
+            
+            {isLayerMenuOpen && (
+              <div className="fixed left-24 top-1/2 -translate-y-1/2 w-48 h-[380px] bg-[#0a0a0a]/90 backdrop-blur-md border border-white/20 shadow-2xl z-50 overflow-hidden flex flex-col">
+                <div className="text-[10px] uppercase text-white/50 tracking-widest p-3 border-b border-white/10 bg-white/5">Filter by Keyword</div>
+                <div className="flex flex-col flex-1 overflow-y-auto w-full [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent">
                   <button 
-                    key={kw} 
-                    onClick={() => { setSelectedKeyword(kw); setIsLayerMenuOpen(false); }} 
-                    className={`text-left text-[10px] p-3 uppercase tracking-wider transition-colors border-l-2 ${selectedKeyword === kw ? 'bg-white/10 text-white border-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5 border-transparent'}`}
+                    onClick={() => { setSelectedKeyword(null); setIsLayerMenuOpen(false); }} 
+                    className={`text-left text-[10px] p-3 uppercase tracking-wider transition-colors border-l-2 ${!selectedKeyword ? 'bg-white/10 text-white border-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5 border-transparent'}`}
                   >
-                    {kw}
+                    All Categories
                   </button>
-                ))}
+                  {KEYWORD_POOL.map(kw => (
+                    <button 
+                      key={kw} 
+                      onClick={() => { setSelectedKeyword(kw); setIsLayerMenuOpen(false); }} 
+                      className={`text-left text-[10px] p-3 uppercase tracking-wider transition-colors border-l-2 ${selectedKeyword === kw ? 'bg-white/10 text-white border-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5 border-transparent'}`}
+                    >
+                      {kw}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </aside>
 
       {/* Main Spatial Canvas */}
@@ -1408,67 +1442,120 @@ export default function BuildInLive() {
               </div>
               <h2 className="text-xl font-black text-white uppercase tracking-tighter">DELETE_ACCOUNT</h2>
               <p className="text-[11px] text-white/50 leading-relaxed uppercase tracking-wider">
-                Are you sure you want to delete your account?<br/>
-                All projects and data will be permanently removed. This action cannot be undone.
+                {reAuthNeeded 
+                  ? "For security, please verify your identity to proceed with account deletion."
+                  : "Are you sure you want to delete your account? All projects and data will be permanently removed. This action cannot be undone."}
               </p>
             </div>
             
-            <div className="space-y-3">
-              <button 
-                onClick={async () => {
-                  try {
-                    setIsDeleting(true);
-                    setDeleteError(null);
-                    const { auth, db } = await import("@/lib/firebase");
-                    const user = auth?.currentUser;
-                    
-                    if (!user || !db) throw new Error("Authentication failed");
+            <div className="space-y-4">
+              {reAuthNeeded ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[9px] uppercase tracking-[0.2em] text-white/30 block ml-1">Current Password</label>
+                    <input 
+                      type="password"
+                      placeholder="ENTER_PASSWORD"
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      className="w-full bg-white/5 border-b border-white/20 p-3 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10"
+                    />
+                  </div>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        setIsDeleting(true);
+                        setDeleteError(null);
+                        const { auth, db } = await import("@/lib/firebase");
+                        const { EmailAuthProvider, reauthenticateWithCredential, GoogleAuthProvider, signInWithPopup } = await import("firebase/auth");
+                        const user = auth?.currentUser;
+                        if (!user || !db) throw new Error("Authentication failed");
 
-                    const { doc, deleteDoc, collection, query, where, getDocs, writeBatch } = await import("firebase/firestore");
-                    
-                    // 1. Cleanup Projects while still authenticated
-                    const projectsRef = collection(db, "projects");
-                    const q = query(projectsRef, where("ownerId", "==", user.uid));
-                    const projectSnapshots = await getDocs(q);
-                    
-                    const batch = writeBatch(db);
-                    projectSnapshots.forEach((pDoc) => {
-                      batch.delete(pDoc.ref);
-                    });
-                    
-                    // 2. Add User Doc cleanup to the same atomic batch
-                    batch.delete(doc(db, "users", user.uid));
-                    await batch.commit();
-
-                    // 3. Finally delete the user account from Firebase Auth
-                    // Note: This will fail if they haven't logged in recently.
-                    try {
-                      await user.delete();
-                    } catch (authError: any) {
-                      if (authError.code === 'auth/requires-recent-login') {
-                        setDeleteError("Recent login required. Logging you out for re-authentication...");
-                        setTimeout(async () => {
-                          await auth.signOut();
-                          router.push("/auth");
-                        }, 2000);
-                        return;
+                        // Try Email Re-auth if password provided
+                        if (deletePassword) {
+                          const credential = EmailAuthProvider.credential(user.email!, deletePassword);
+                          await reauthenticateWithCredential(user, credential);
+                        } else {
+                          // Try Google Re-auth
+                          const provider = new GoogleAuthProvider();
+                          await signInWithPopup(auth, provider);
+                        }
+                        
+                        setReAuthNeeded(false);
+                        setDeletePassword("");
+                        // Trigger deletion again
+                        document.getElementById('confirm-delete-btn')?.click();
+                      } catch (err: any) {
+                        console.error("Re-auth failed:", err);
+                        setDeleteError(err.message || "Verification failed. Please check your password.");
+                      } finally {
+                        setIsDeleting(false);
                       }
-                      throw authError;
+                    }}
+                    className={`w-full py-4 bg-white text-black font-black tracking-[0.3em] text-[10px] transition-all uppercase ${isDeleting ? 'opacity-50 cursor-wait' : 'hover:bg-white/90'}`}
+                    disabled={isDeleting || (!deletePassword && !firebaseUser?.providerData.some(p => p.providerId === 'google.com'))}
+                  >
+                    {isDeleting ? 'VERIFYING...' : 'VERIFY_IDENTITY'}
+                  </button>
+                  {firebaseUser?.providerData.some(p => p.providerId === 'google.com') && !deletePassword && (
+                    <p className="text-[9px] text-white/30 text-center uppercase tracking-widest italic">
+                      Click verify to re-authenticate with Google
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <button 
+                  id="confirm-delete-btn"
+                  onClick={async () => {
+                    try {
+                      setIsDeleting(true);
+                      setDeleteError(null);
+                      const { auth, db } = await import("@/lib/firebase");
+                      const user = auth?.currentUser;
+                      
+                      if (!user || !db) throw new Error("Authentication failed");
+
+                      try {
+                        const { doc, collection, query, where, getDocs, writeBatch } = await import("firebase/firestore");
+                        
+                        // 1. Cleanup Firestore first
+                        const projectsRef = collection(db, "projects");
+                        const q = query(projectsRef, where("ownerId", "==", user.uid));
+                        const projectSnapshots = await getDocs(q);
+                        
+                        const batch = writeBatch(db);
+                        projectSnapshots.forEach((pDoc) => {
+                          batch.delete(pDoc.ref);
+                        });
+                        
+                        batch.delete(doc(db, "users", user.uid));
+                        await batch.commit();
+
+                        // 2. Delete Auth account
+                        await user.delete();
+                        router.push("/auth");
+                      } catch (authError: any) {
+                        if (authError.code === 'auth/requires-recent-login') {
+                          setReAuthNeeded(true);
+                          setIsDeleting(false);
+                          setDeleteError(null);
+                        } else {
+                          throw authError;
+                        }
+                      }
+                    } catch (error: any) {
+                      console.error("Deletion failed:", error);
+                      setDeleteError(error.message || "Deletion failed. Please try again.");
+                    } finally {
+                      setIsDeleting(false);
                     }
-                    
-                    router.push("/auth");
-                  } catch (error: any) {
-                    console.error("Deletion failed:", error);
-                    setDeleteError(error.message || "Deletion failed. Please try again.");
-                  } finally {
-                    setIsDeleting(false);
-                  }
-                }}
-                className={`w-full py-4 bg-[#F95A56] text-white font-black tracking-[0.3em] text-[10px] transition-all uppercase ${isDeleting ? 'opacity-50 cursor-wait' : 'hover:brightness-110'}`}
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'PROCESSING_DELETION...' : 'CONFIRM_PERMANENT_DELETION'}
-              </button>
+                  }}
+                  className={`w-full py-4 bg-[#F95A56] text-white font-black tracking-[0.3em] text-[10px] transition-all uppercase ${isDeleting ? 'opacity-50 cursor-wait' : 'hover:brightness-110'}`}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'PROCESSING...' : 'CONFIRM_PERMANENT_DELETION'}
+                </button>
+              )}
               <button 
                 onClick={() => {
                   setShowDeleteConfirm(false);
@@ -1563,7 +1650,7 @@ export default function BuildInLive() {
                   if (!uid) return;
 
                   // 1. Upload Logo if exists
-                  let logoUrl = editingProject?.logoUrl || "/images/desk/vibounder-logo.png";
+                  let logoUrl = editingProject?.logoUrl || "";
                   if (logoFile && storage) {
                     const logoRef = ref(storage, `projects/${uid}/${Date.now()}_logo_${logoFile.name}`);
                     const uploadResult = await uploadBytes(logoRef, logoFile);

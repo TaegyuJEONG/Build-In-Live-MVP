@@ -152,12 +152,16 @@ const Monitor: React.FC<MonitorProps> = ({
                 {profileViewMode === "polaroid" ? (
                   <div className="flex flex-col items-center">
                     <div className="w-48 h-60 bg-white p-3 shadow-2xl rotate-2 transform hover:rotate-0 transition-transform duration-500">
-                       <div className="w-full h-44 bg-zinc-200 overflow-hidden">
-                          <img 
-                            src={projects[0]?.logo || "/images/desk/vibounder-logo.png"} 
-                            className="w-full h-full object-cover grayscale"
-                            alt="Profile"
-                          />
+                       <div className="w-full h-44 bg-zinc-200 overflow-hidden flex items-center justify-center">
+                          {projects[0]?.logo ? (
+                            <img 
+                              src={projects[0].logo} 
+                              className="w-full h-full object-cover grayscale"
+                              alt="Profile"
+                            />
+                          ) : (
+                            <ImageIcon className="w-12 h-12 text-black/10" />
+                          )}
                        </div>
                        <div className="mt-4 text-center">
                           <span className="font-serif italic text-black/40 text-sm">Artist_Profile.png</span>

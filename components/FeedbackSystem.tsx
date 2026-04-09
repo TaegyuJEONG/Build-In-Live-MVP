@@ -4,6 +4,7 @@ import { useState, useEffect, RefObject } from "react";
 import { useStorage, useMutation, useSelf } from "@/liveblocks.config";
 import { LiveList } from "@liveblocks/client";
 import { MessageSquarePlus, X, List, Trash2, Edit3, MapPin, Layout, ChevronLeft, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { auth, storage } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
@@ -421,7 +422,10 @@ export function FeedbackSystem({
           </button>
         )}
 
-        <div className={`flex-1 overflow-y-auto w-full bg-[#131313] p-4 flex flex-col gap-4 px-5 pb-12 scroll-smooth ${isMobile || viewMode === 'comments' ? 'pt-4' : 'pt-12'}`}>
+        <div className={cn(
+          "flex-1 overflow-y-auto w-full bg-[#131313] px-5 pb-12 scroll-smooth",
+          viewMode === 'comments' ? "p-8 gap-8 pt-8" : isMobile ? "p-4 gap-4 pt-4" : "p-4 gap-4 pt-12"
+        )}>
           {(markers || []).length === 0 && (
             <div className="p-6 text-center text-[#919191] text-xs">No comments yet. Drop a marker to start!</div>
           )}
@@ -432,7 +436,11 @@ export function FeedbackSystem({
              const text = replyText[marker.id] || "";
              
              return (
-               <div key={marker.id} id={`comment-${marker.id}`} className={`bg-[#1A1A1A]/60 backdrop-blur-sm rounded-2xl p-4 pt-3.5 shadow-lg border transition-all cursor-pointer ${isActive ? 'border-[#F95A56]' : 'border-white/[0.05] hover:border-white/10'}`}
+               <div key={marker.id} id={`comment-${marker.id}`} className={cn(
+                 "bg-[#1A1A1A]/60 backdrop-blur-sm shadow-lg border transition-all cursor-pointer",
+                 viewMode === 'comments' ? "rounded-3xl p-8 gap-6" : "rounded-2xl p-4 pt-3.5",
+                 isActive ? 'border-[#F95A56]' : 'border-white/[0.05] hover:border-white/10'
+               )}
                     onClick={() => {
                        handleSelection(marker.id);
                        setIsNewMarker(false);
@@ -473,35 +481,84 @@ export function FeedbackSystem({
                      return (
                        <div key={comment.id} className={`flex flex-col ${idx > 0 ? 'ml-4 mt-4 pt-4 border-t border-white/5' : ''}`}>
                          <div className="flex justify-between items-center mb-1">
-                           <div className="flex items-center gap-2">
-                             <div className="w-5 h-5 rounded-full overflow-hidden bg-white/10 flex items-center justify-center border border-white/10">
-                               {comment.author === "Anonymous" ? <User className="w-3 h-3 text-white/60" /> : <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author)}&background=random`} alt={comment.author} className="w-full h-full object-cover" />}
+                           <div className="flex items-center gap-3">
+                             <div className={cn(
+                               "rounded-full overflow-hidden bg-white/10 flex items-center justify-center border border-white/10",
+                               viewMode === 'comments' ? "w-8 h-8" : "w-5 h-5"
+                             )}>
+                               {comment.author === "Anonymous" ? (
+                                 <User className={viewMode === 'comments' ? "w-5 h-5 text-white/60" : "w-3 h-3 text-white/60"} />
+                               ) : (
+                                 <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author)}&background=random`} alt={comment.author} className="w-full h-full object-cover" />
+                               )}
                              </div>
-                             <span className="text-[#E5E5E5] text-[13px] font-medium">{comment.author} <span className="text-[#A3A3A3] text-[11px] ml-1 font-normal">{getTimeAgo(comment.timestamp)}</span></span>
+                             <span className={cn(
+                               "text-[#E5E5E5] font-medium",
+                               viewMode === 'comments' ? "text-[20px]" : "text-[13px]"
+                             )}>
+                               {comment.author} 
+                               <span className={cn(
+                                 "text-[#A3A3A3] ml-2 font-normal",
+                                 viewMode === 'comments' ? "text-[16px]" : "text-[11px]"
+                               )}>
+                                 {getTimeAgo(comment.timestamp)}
+                               </span>
+                             </span>
                            </div>
-                           {canDelete && (
-                             <div className="flex gap-2">
-                               {isAuthor && <button onClick={() => { setEditingCommentId(comment.id); setEditingText(comment.text); }}><Edit3 className="w-3 h-3 text-white/40 hover:text-white" /></button>}
-                               <button onClick={() => idx === 0 ? deleteMarker(marker.id) : deleteComment(marker.id, comment.id)}><Trash2 className="w-3 h-3 text-white/40 hover:text-red-500" /></button>
-                             </div>
-                           )}
+                            {canDelete && (
+                              <div className={cn("flex", viewMode === 'comments' ? "gap-4" : "gap-2")}>
+                                {isAuthor && (
+                                  <button onClick={() => { setEditingCommentId(comment.id); setEditingText(comment.text); }}>
+                                    <Edit3 className={viewMode === 'comments' ? "w-5 h-5 text-white/40 hover:text-white" : "w-3 h-3 text-white/40 hover:text-white"} />
+                                  </button>
+                                )}
+                                <button onClick={() => idx === 0 ? deleteMarker(marker.id) : deleteComment(marker.id, comment.id)}>
+                                  <Trash2 className={viewMode === 'comments' ? "w-6 h-6 text-white/40 hover:text-red-500" : "w-3 h-3 text-white/40 hover:text-red-500"} />
+                                </button>
+                              </div>
+                            )}
                          </div>
 
-                         {marker.screenshotUrl && (
-                           <div className="mt-3 relative aspect-video rounded-lg overflow-hidden border border-white/5 cursor-zoom-in group transition-all hover:border-[#F95A56]/30" onClick={(e) => { e.stopPropagation(); setViewingSnapshotMarker(marker); }}>
-                             <img src={marker.screenshotUrl} alt="Snapshot" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                           </div>
-                         )}
+                          {marker.screenshotUrl && (
+                            <div 
+                              className="mt-3 relative aspect-video rounded-lg overflow-hidden border border-white/5 cursor-zoom-in group transition-all hover:border-[#F95A56]/30" 
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                if (viewMode === 'comments') {
+                                  window.parent.postMessage({ type: 'BUILD_IN_LIVE_SHOW_SNAPSHOT', marker }, '*');
+                                } else {
+                                  setViewingSnapshotMarker(marker); 
+                                }
+                              }}
+                            >
+                              <img src={marker.screenshotUrl} alt="Snapshot" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                            </div>
+                          )}
 
-                         <div className="mt-4 flex flex-wrap gap-2 text-[10px] text-white/30">
-                           <div className="bg-white/5 px-2 py-0.5 rounded border border-white/5 flex items-center gap-1.5"><Layout className="w-2.5 h-2.5" />{marker.pathname}</div>
-                         </div>
+                          <div className={cn(
+                            "mt-4 flex flex-wrap gap-2 text-white/30",
+                            viewMode === 'comments' ? "text-[16px]" : "text-[10px]"
+                          )}>
+                            <div className={cn(
+                              "bg-white/5 border border-white/5 flex items-center",
+                              viewMode === 'comments' ? "px-4 py-1.5 rounded-lg gap-3" : "px-2 py-0.5 rounded gap-1.5"
+                            )}>
+                              <Layout className={viewMode === 'comments' ? "w-4 h-4" : "w-2.5 h-2.5"} />
+                              {marker.pathname}
+                            </div>
+                          </div>
 
-                         {isEditing ? (
-                           <textarea className="mt-2 w-full bg-[#1F1F1F] text-white border border-[#F95A56] p-2 rounded text-sm outline-none" value={editingText} onChange={(e) => setEditingText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (editComment(marker.id, comment.id, editingText), setEditingCommentId(null))} autoFocus />
-                         ) : (
-                           <div className="text-[#D4D4D4] text-sm leading-relaxed whitespace-pre-wrap">{comment.text}</div>
-                         )}
+                          {isEditing ? (
+                            <textarea className={cn(
+                              "mt-2 w-full bg-[#1F1F1F] text-white border border-[#F95A56] rounded outline-none",
+                              viewMode === 'comments' ? "p-4 text-lg" : "p-2 text-sm"
+                            )} value={editingText} onChange={(e) => setEditingText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (editComment(marker.id, comment.id, editingText), setEditingCommentId(null))} autoFocus />
+                          ) : (
+                            <div className={cn(
+                              "mt-4 text-[#D4D4D4] leading-relaxed whitespace-pre-wrap",
+                              viewMode === 'comments' ? "text-[24px]" : "text-sm"
+                            )}>{comment.text}</div>
+                          )}
                        </div>
                      );
                    })}

@@ -9,6 +9,7 @@ import Keyboard from "@/components/desk/Keyboard";
 import { BottomNav } from "@/components/BottomNav";
 import { cn } from "@/lib/utils";
 import { Plus, Minus, Focus, X, Upload, Loader2, Image as ImageIcon, Trash2, Youtube, Link as LinkIcon, Camera, MousePointer2, RotateCw, Maximize2, Link2, ExternalLink, StickyNote } from "lucide-react";
+import { SnapshotOverlay } from "@/components/SnapshotOverlay";
 import { useStore, Project as StoreProject, Polaroid } from "@/lib/store";
 import { storage, db } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -39,7 +40,7 @@ const mapProject = (p: any) => ({
   name: p.name || "Untitled Project",
   tagline: p.tagline || p.description?.slice(0, 50) || "No tagline provided.",
   description: p.description || "No description provided.",
-  logo: p.logoUrl || "/images/desk/vibounder-logo.png",
+  logo: p.logoUrl || "",
   logoUrl: p.logoUrl,
   screenshots: p.screenshots && p.screenshots.length > 0 ? p.screenshots : [],
   categories: p.categories || ["General"],
@@ -76,6 +77,7 @@ const FALLBACK_PROJECTS = [
 
 export default function UserDeskPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const uid = params.uid as string;
   const router = useRouter();
   const { projects, init, firebaseUser, currentUser, isLoading, addProject, updateProject, deleteProject: storeDeleteProject } = useStore();
@@ -105,6 +107,7 @@ export default function UserDeskPage() {
   const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [screenshotPreviews, setScreenshotPreviews] = useState<string[]>([]);
+  const [viewingSnapshotMarker, setViewingSnapshotMarker] = useState<any>(null);
   
   const [scale, setScale] = useState(0.7);
   const [position, setPosition] = useState({ x: -6, y: -29 });
@@ -194,9 +197,28 @@ export default function UserDeskPage() {
 
    useEffect(() => {
      if (userProjects.length > 0 && !selectedProjectId) {
-       setSelectedProjectId(userProjects[0].id);
+       const urlProjectId = searchParams.get('projectId');
+       if (urlProjectId && userProjects.some(p => p.id === urlProjectId)) {
+         setSelectedProjectId(urlProjectId);
+       } else {
+         setSelectedProjectId(userProjects[0].id);
+       }
      }
-   }, [userProjects]);
+   }, [userProjects, searchParams, selectedProjectId]);
+
+    // Handle tab-specific origins
+    useEffect(() => {
+      if (mainTab === 'PROFILE') {
+        setPosition({ x: 104, y: -18 });
+        setScale(0.60);
+      } else if (mainTab === 'PROJECTS') {
+        setPosition({ x: -6, y: -29 });
+        setScale(0.7);
+      } else if (mainTab === 'ROLLING_PAPER') {
+        setPosition({ x: 0, y: 0 });
+        setScale(0.7);
+      }
+    }, [mainTab]);
 
    // Track last visited desk
    useEffect(() => {
@@ -286,6 +308,16 @@ export default function UserDeskPage() {
     }
   }, [scale]);
 
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'BUILD_IN_LIVE_SHOW_SNAPSHOT') {
+        setViewingSnapshotMarker(e.data.marker);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (e.button === 0 && !target.closest("button, a, input, textarea, [role='button']")) {
@@ -346,7 +378,23 @@ export default function UserDeskPage() {
             </div>
             <button className="w-12 h-12 flex items-center justify-center hover:bg-white/5 text-white/30" onClick={() => setScale(s => Math.min(s + 0.1, 5))}><Plus className="w-4 h-4"/></button>
             <button className="w-12 h-12 flex items-center justify-center hover:bg-white/5 text-white/30" onClick={() => setScale(s => Math.max(s - 0.1, 0.1))}><Minus className="w-4 h-4"/></button>
-            <button className="w-12 h-12 flex items-center justify-center bg-white text-black my-2 shadow-xl" onClick={() => { setPosition({ x: -6, y: -29 }); setScale(0.7); }}><Focus className="w-4 h-4"/></button>
+            <button 
+              className="w-12 h-12 flex items-center justify-center bg-white text-black my-2 shadow-xl" 
+              onClick={() => { 
+                if (mainTab === 'PROFILE') {
+                  setPosition({ x: 104, y: -18 }); 
+                  setScale(0.60); 
+                } else if (mainTab === 'ROLLING_PAPER') {
+                  setPosition({ x: 0, y: 0 });
+                  setScale(0.7);
+                } else {
+                  setPosition({ x: -6, y: -29 }); 
+                  setScale(0.7); 
+                }
+              }}
+            >
+              <Focus className="w-4 h-4"/>
+            </button>
             {isOwner && mainTab === "PROFILE" && (
               <div className="flex flex-col gap-3 mt-6">
                 <button 
@@ -1257,6 +1305,12 @@ export default function UserDeskPage() {
              </div>
           </div>
         </div>
+      )}
+      {viewingSnapshotMarker && (
+        <SnapshotOverlay 
+          marker={viewingSnapshotMarker} 
+          onClose={() => setViewingSnapshotMarker(null)} 
+        />
       )}
     </div>
   );
