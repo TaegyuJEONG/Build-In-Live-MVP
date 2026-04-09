@@ -10,8 +10,9 @@ import { BottomNav } from "@/components/BottomNav";
 import { cn } from "@/lib/utils";
 import { Plus, Minus, Focus, X, Upload, Loader2, Image as ImageIcon, Trash2, Youtube, Link as LinkIcon, Camera, MousePointer2, RotateCw, Maximize2, Link2, ExternalLink, StickyNote } from "lucide-react";
 import { useStore, Project as StoreProject, Polaroid } from "@/lib/store";
-import { storage } from "@/lib/firebase";
+import { storage, db } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, getDoc } from "firebase/firestore";
 
 export type Project = {
   id: string;
@@ -133,11 +134,34 @@ export default function UserDeskPage() {
     return filtered as Project[];
   }, [projects, uid, firebaseUser]);
 
-  useEffect(() => {
-    if (userProjects.length > 0 && !selectedProjectId) {
-      setSelectedProjectId(userProjects[0].id);
-    }
-  }, [userProjects]);
+   useEffect(() => {
+     if (userProjects.length > 0 && !selectedProjectId) {
+       setSelectedProjectId(userProjects[0].id);
+     }
+   }, [userProjects]);
+
+   // Track last visited desk
+   useEffect(() => {
+     const saveVisitedDesk = async () => {
+       if (uid && firebaseUser && uid !== firebaseUser.uid && db) {
+         try {
+           const userSnap = await getDoc(doc(db, 'users', uid));
+           if (userSnap.exists()) {
+             const userData = userSnap.data();
+             const ownerName = userData.displayName || userData.name || uid.slice(0, 5).toUpperCase();
+             localStorage.setItem('lastVisitedDeskId', selectedProjectId || '');
+             localStorage.setItem('lastVisitedDeskOwnerId', uid);
+             localStorage.setItem('lastVisitedDeskOwnerName', ownerName);
+             // Trigger storage event for BottomNav to update
+             window.dispatchEvent(new Event('storage'));
+           }
+         } catch (err) {
+           console.error("Error saving visited desk:", err);
+         }
+       }
+     };
+     saveVisitedDesk();
+   }, [uid, firebaseUser, selectedProjectId]);
 
   const handleEditProject = useCallback((project: Project) => {
     setEditingProject(project);
@@ -235,7 +259,7 @@ export default function UserDeskPage() {
             <button className="w-12 h-12 flex items-center justify-center hover:bg-white/5 text-white/30" onClick={() => setScale(s => Math.min(s + 0.1, 5))}><Plus className="w-4 h-4"/></button>
             <button className="w-12 h-12 flex items-center justify-center hover:bg-white/5 text-white/30" onClick={() => setScale(s => Math.max(s - 0.1, 0.1))}><Minus className="w-4 h-4"/></button>
             <button className="w-12 h-12 flex items-center justify-center bg-white text-black my-2 shadow-xl" onClick={() => { setPosition({ x: 0, y: -80 }); setScale(0.8); }}><Focus className="w-4 h-4"/></button>
-            {mainTab === "PROFILE" && (
+            {isOwner && mainTab === "PROFILE" && (
               <div className="flex flex-col gap-3 mt-6">
                 <button 
                   onClick={() => setPlacingPolaroid(p => p ? null : { x: 0, y: 0, text: "", rotation: Math.random()*10-5, scale: 1.0, date: new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit'}).toUpperCase() })}
@@ -298,18 +322,24 @@ export default function UserDeskPage() {
            setSelectedId(null);
            if (placingPolaroid) {
               e.stopPropagation();
-                if (!isOwner) return;
-                try {
-                  const data = { 
-                    ...placingPolaroid, 
-                    scale: 1.0, 
-                    scope: mainTab as 'PROFILE' | 'ROLLING_PAPER',
-                    authorId: currentUser?.id || firebaseUser?.uid,
-                    authorName: currentUser?.name || firebaseUser?.displayName || 'Anonymous'
-                  };
-                  setPlacingPolaroid(null);
-                  await addPolaroid(uid, data);
-                } catch (err) {}
+                if (!isOwner && placingPolaroid?.type !== 'POSTIT') return;
+                 try {
+                   const authorId = currentUser?.id || firebaseUser?.uid || null;
+                   const authorName = currentUser?.name || firebaseUser?.displayName || 'Anonymous';
+                   
+                   const data = { 
+                     ...placingPolaroid, 
+                     scale: 1.0, 
+                     scope: mainTab as 'PROFILE' | 'ROLLING_PAPER',
+                     ...(authorId && { authorId }),
+                     authorName
+                   };
+                   
+                   await addPolaroid(uid, data);
+                   setPlacingPolaroid(null);
+                 } catch (err) {
+                   console.error("Error adding polaroid:", err);
+                 }
               return;
            }
            handleMouseDown(e);
@@ -325,7 +355,7 @@ export default function UserDeskPage() {
         {mainTab === "PROJECTS" ? (
           <main className="flex flex-col items-center gap-12 w-full max-w-7xl pt-10">
              <div className="flex flex-col lg:flex-row items-center gap-10 w-full lg:items-end">
-                <div className="flex-1 w-full max-w-4xl"><Monitor projects={userProjects} selectedProjectId={selectedProjectId || ""} onSelectProject={setSelectedProjectId} viewMode={viewMode} mainTab={mainTab} profileViewMode={profileViewMode} onEditProject={handleEditProject} /></div>
+                <div className="flex-1 w-full max-w-4xl"><Monitor projects={userProjects} selectedProjectId={selectedProjectId || ""} onSelectProject={setSelectedProjectId} viewMode={viewMode} mainTab={mainTab} profileViewMode={profileViewMode} onEditProject={handleEditProject} onViewModeChange={setViewMode} isOwner={isOwner} /></div>
                 <div className="w-full lg:w-96"><SecondaryScreen project={selectedProject} viewMode={viewMode} mainTab={mainTab} /></div>
              </div>
              <div className="w-full max-w-2xl">
@@ -365,12 +395,13 @@ export default function UserDeskPage() {
                          position: 'absolute', 
                          zIndex: isSelected ? 200 : 50, 
                          width: p.type === 'YOUTUBE' ? 400 * sc : (p.type === 'LINK' ? 140 * sc : (p.type === 'POSTIT' ? 280 * sc : w)), 
-                         minHeight: p.type === 'YOUTUBE' ? 225 * sc : (p.type === 'LINK' ? 144 * sc : (p.type === 'POSTIT' ? 180 * sc : h)) 
+                      minHeight: p.type === 'YOUTUBE' ? 225 * sc : (p.type === 'LINK' ? 144 * sc : (p.type === 'POSTIT' ? 180 * sc : h)) 
                       }}
-                      className={cn("group/card pointer-events-auto flex items-center justify-center", isSelected ? "cursor-default" : "cursor-move")}
+                      className={cn("group/card pointer-events-auto flex items-center justify-center", (isOwner || (p.scope !== 'PROFILE' && p.authorId === firebaseUser?.uid)) ? "cursor-move" : "cursor-default")}
                       onMouseDown={(e) => {
                          e.stopPropagation(); setSelectedId(p.id);
                          if ((e.target as HTMLElement).closest("button, textarea, input, label")) return;
+                         if (!isOwner && (p.scope === 'PROFILE' || p.authorId !== firebaseUser?.uid)) return;
                          
                          const startX = e.clientX, startY = e.clientY, spX = p.x, spY = p.y;
                          setDraggingId(p.id);
@@ -457,29 +488,35 @@ export default function UserDeskPage() {
                                
                                <div 
                                  className={cn(
-                                   "absolute inset-0 z-10 bg-transparent cursor-move",
-                                   (isSelected && playingVideoId === p.id && draggingId !== p.id) ? "pointer-events-none" : "pointer-events-auto"
+                                   "absolute inset-0 z-10 bg-transparent",
+                                   (isOwner && !(isSelected && playingVideoId === p.id && draggingId !== p.id)) ? "cursor-move pointer-events-auto" : "pointer-events-none"
                                  )} 
                                />
                             </div>
 
                             <textarea 
+                               readOnly={!isOwner}
                                maxLength={50} rows={1} placeholder="Video Title..."
-                               className="w-full bg-transparent border-none outline-none resize-none font-black text-black leading-none text-[18px] uppercase tracking-tighter placeholder:text-black/5 selection:bg-black/10 px-1 overflow-hidden cursor-text select-text mt-1"
+                               className={cn(
+                                 "w-full bg-transparent border-none outline-none resize-none font-black text-black leading-none text-[18px] uppercase tracking-tighter placeholder:text-black/5 selection:bg-black/10 px-1 overflow-hidden mt-1",
+                                 isOwner ? "cursor-text select-text" : "cursor-default select-none"
+                               )}
                                value={textDrafts[p.id] !== undefined ? textDrafts[p.id] : p.text}
                                onMouseDown={(e) => e.stopPropagation()} onMouseMove={(e) => e.stopPropagation()}
-                               onFocus={() => setFocusedId(p.id)}
+                               onFocus={() => isOwner && setFocusedId(p.id)}
                                onInput={(e) => { const t = e.target as any; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
-                               onChange={(e) => setTextDrafts(prev => ({ ...prev, [p.id]: e.target.value }))}
-                               onBlur={(e) => { updatePolaroid(uid, p.id, { text: e.target.value }); setFocusedId(null); }}
+                               onChange={(e) => isOwner && setTextDrafts(prev => ({ ...prev, [p.id]: e.target.value }))}
+                               onBlur={(e) => { if(isOwner) { updatePolaroid(uid, p.id, { text: e.target.value }); setFocusedId(null); } }}
                             />
 
-                            <button 
-                               onClick={(e) => { e.stopPropagation(); deletePolaroid(uid, p.id); }} 
-                               className="absolute -top-3 -right-3 w-8 h-8 bg-black text-white flex items-center justify-center opacity-0 group-hover/card:opacity-100 hover:bg-red-500 transition-opacity z-[300] rounded-full border-2 border-white shadow-xl"
-                            >
-                               <X className="w-4 h-4" />
-                            </button>
+                            {isOwner && (
+                              <button 
+                                 onClick={(e) => { e.stopPropagation(); deletePolaroid(uid, p.id); }} 
+                                 className="absolute -top-3 -right-3 w-8 h-8 bg-black text-white flex items-center justify-center opacity-0 group-hover/card:opacity-100 hover:bg-red-500 transition-opacity z-[300] rounded-full border-2 border-white shadow-xl"
+                              >
+                                 <X className="w-4 h-4" />
+                              </button>
+                            )}
                          </div>
                        ) : p.type === 'LINK' ? (
                          <div 
@@ -508,12 +545,14 @@ export default function UserDeskPage() {
                                   <span className="text-[10px] font-black text-[#505050] uppercase tracking-[0.15em] truncate">{p.text || "LINK"}</span>
                                </div>
                             </a>
-                            <button 
-                               onClick={(e) => { e.stopPropagation(); deletePolaroid(uid, p.id); }} 
-                               className="absolute -top-3 -right-3 w-8 h-8 bg-black text-white flex items-center justify-center opacity-0 group-hover/link:opacity-100 hover:bg-red-500 transition-opacity z-50 rounded-full border-2 border-white shadow-xl"
-                            >
-                               <X className="w-4 h-4" />
-                            </button>
+                            {isOwner && (
+                              <button 
+                                 onClick={(e) => { e.stopPropagation(); deletePolaroid(uid, p.id); }} 
+                                 className="absolute -top-3 -right-3 w-8 h-8 bg-black text-white flex items-center justify-center opacity-0 group-hover/link:opacity-100 hover:bg-red-500 transition-opacity z-50 rounded-full border-2 border-white shadow-xl"
+                              >
+                                 <X className="w-4 h-4" />
+                              </button>
+                            )}
                          </div>
                        ) : p.type === 'POSTIT' ? (
                           <div 
@@ -527,18 +566,23 @@ export default function UserDeskPage() {
                              <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-16 h-6 bg-white/30 backdrop-blur-sm rotate-[-2deg]" />
                              
                              <textarea 
-                                autoFocus
+                                readOnly={!isOwner && p.authorId !== firebaseUser?.uid}
                                 maxLength={250}
                                 placeholder="Write a message..."
-                                className="w-full bg-transparent border-none outline-none resize-none font-medium text-black/80 leading-relaxed text-[16px] placeholder:text-black/10 selection:bg-black/10 overflow-hidden cursor-text select-text"
+                                className={cn(
+                                  "w-full bg-transparent border-none outline-none resize-none font-medium text-black/80 leading-relaxed text-[16px] placeholder:text-black/10 selection:bg-black/10 overflow-hidden",
+                                  (isOwner || p.authorId === firebaseUser?.uid) ? "cursor-text select-text" : "cursor-default select-none"
+                                )}
                                 style={{ height: 'auto', minHeight: '100px' }}
                                 value={textDrafts[p.id] !== undefined ? textDrafts[p.id] : p.text}
                                 onChange={(e) => {
-                                  setTextDrafts({ ...textDrafts, [p.id]: e.target.value });
-                                  e.target.style.height = 'auto';
-                                  e.target.style.height = e.target.scrollHeight + 'px';
+                                  if (isOwner || p.authorId === firebaseUser?.uid) {
+                                    setTextDrafts({ ...textDrafts, [p.id]: e.target.value });
+                                    e.target.style.height = 'auto';
+                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                  }
                                 }}
-                                onBlur={() => updatePolaroid(uid, p.id, { text: textDrafts[p.id] })}
+                                onBlur={() => (isOwner || p.authorId === firebaseUser?.uid) && updatePolaroid(uid, p.id, { text: textDrafts[p.id] })}
                              />
 
                              <div className="flex justify-between items-end mt-auto pt-4 border-t border-black/5">
@@ -559,12 +603,14 @@ export default function UserDeskPage() {
                                 <span className="text-[9px] font-black text-black/30">{(textDrafts[p.id] || p.text || "").length}/250</span>
                              </div>
 
-                             <button 
-                                onClick={(e) => { e.stopPropagation(); deletePolaroid(uid, p.id); }} 
-                                className="absolute -top-3 -right-3 w-8 h-8 bg-black text-white flex items-center justify-center opacity-0 group-hover/card:opacity-100 hover:bg-red-500 transition-opacity z-[300] rounded-full border-2 border-white shadow-xl"
-                             >
-                                <X className="w-4 h-4" />
-                             </button>
+                             {(isOwner || p.authorId === firebaseUser?.uid) && (
+                               <button 
+                                  onClick={(e) => { e.stopPropagation(); deletePolaroid(uid, p.id); }} 
+                                  className="absolute -top-3 -right-3 w-8 h-8 bg-black text-white flex items-center justify-center opacity-0 group-hover/card:opacity-100 hover:bg-red-500 transition-opacity z-[300] rounded-full border-2 border-white shadow-xl"
+                               >
+                                  <X className="w-4 h-4" />
+                               </button>
+                             )}
                           </div>
                        ) : (
                          <div style={{ width: w, minHeight: h }} className={cn("group/card-inner bg-white border-[4px] shadow-[8px_8px_0px_#F95A56] p-2 flex flex-col gap-2 relative", isSelected ? "border-[#4A90E2]" : "border-white")}>
@@ -576,7 +622,7 @@ export default function UserDeskPage() {
                                  </div>
                                ) : p.image ? (
                                  <img src={p.image} className="w-full h-full object-cover" />
-                               ) : (
+                               ) : isOwner ? (
                                  <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-zinc-100 transition-colors">
                                     <ImageIcon className="w-6 h-6 text-black/10" />
                                     <input 
@@ -598,32 +644,42 @@ export default function UserDeskPage() {
                                       }} 
                                     />
                                  </label>
+                               ) : (
+                                 <div className="w-full h-full flex items-center justify-center bg-zinc-50">
+                                    <ImageIcon className="w-6 h-6 text-black/5" />
+                                 </div>
                                )}
                             </div>
                             <textarea 
+                               readOnly={!isOwner}
                                maxLength={150} rows={1} placeholder="Write something..."
-                               className="w-full bg-transparent border-none outline-none resize-none font-serif italic text-black leading-tight text-[11px] placeholder:text-black/5 selection:bg-[#F95A56]/20 px-1 overflow-hidden cursor-text select-text"
+                               className={cn(
+                                 "w-full bg-transparent border-none outline-none resize-none font-serif italic text-black leading-tight text-[11px] placeholder:text-black/5 selection:bg-[#F95A56]/20 px-1 overflow-hidden",
+                                 isOwner ? "cursor-text select-text" : "cursor-default select-none"
+                               )}
                                value={textDrafts[p.id] !== undefined ? textDrafts[p.id] : p.text}
                                onMouseDown={(e) => e.stopPropagation()} onMouseMove={(e) => e.stopPropagation()}
-                               onFocus={() => setFocusedId(p.id)}
+                               onFocus={() => isOwner && setFocusedId(p.id)}
                                onInput={(e) => { const t = e.target as any; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
-                               onChange={(e) => setTextDrafts(prev => ({ ...prev, [p.id]: e.target.value }))}
-                               onBlur={(e) => { updatePolaroid(uid, p.id, { text: e.target.value }); setFocusedId(null); }}
+                               onChange={(e) => isOwner && setTextDrafts(prev => ({ ...prev, [p.id]: e.target.value }))}
+                               onBlur={(e) => { if(isOwner) { updatePolaroid(uid, p.id, { text: e.target.value }); setFocusedId(null); } }}
                             />
                             <div className="flex justify-between items-center pt-1 border-t border-black/5 min-h-[1.2rem]">
                                <span className="text-[8px] font-black text-black/40 uppercase tracking-widest">{p.date}</span>
-                               {focusedId === p.id && <div className={cn("text-[9px] font-black tabular-nums transition-colors", (textDrafts[p.id] || p.text).length >= 150 ? "text-[#F95A56]" : "text-black/20")}>{(textDrafts[p.id] || p.text).length}/150</div>}
+                               {isOwner && focusedId === p.id && <div className={cn("text-[9px] font-black tabular-nums transition-colors", (textDrafts[p.id] || p.text).length >= 150 ? "text-[#F95A56]" : "text-black/20")}>{(textDrafts[p.id] || p.text).length}/150</div>}
                             </div>
 
-                            <button 
-                               onClick={(e) => { e.stopPropagation(); deletePolaroid(uid, p.id); }} 
-                               className="absolute -top-3 -right-3 w-8 h-8 bg-black text-white flex items-center justify-center opacity-0 group-hover/card:opacity-100 hover:bg-red-500 transition-opacity z-[300] rounded-full border-2 border-white shadow-xl"
-                            >
-                               <X className="w-4 h-4" />
-                            </button>
+                            {isOwner && (
+                              <button 
+                                 onClick={(e) => { e.stopPropagation(); deletePolaroid(uid, p.id); }} 
+                                 className="absolute -top-3 -right-3 w-8 h-8 bg-black text-white flex items-center justify-center opacity-0 group-hover/card:opacity-100 hover:bg-red-500 transition-opacity z-[300] rounded-full border-2 border-white shadow-xl"
+                              >
+                                 <X className="w-4 h-4" />
+                              </button>
+                            )}
                          </div>
                        )}
-                       {isSelected && (
+                       {isSelected && (isOwner || (p.scope !== 'PROFILE' && p.authorId === firebaseUser?.uid)) && (
                          <>
                            <div className="absolute inset-1 border-[1.5px] border-[#4A90E2] pointer-events-none" />
                            {['nw', 'ne', 'sw', 'se'].map(pos => {
@@ -686,44 +742,250 @@ export default function UserDeskPage() {
         )}
       </div>
 
+      {/* Project Creation Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={handleCloseModal} />
-          <div className="relative w-full max-w-4xl bg-[#0e0e0e] border border-white/10 shadow-2xl flex flex-col font-mono text-white max-h-[90vh]">
-             <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center font-black uppercase tracking-widest text-xs">
-                {editingProject ? `Edit // ${editingProject.name}` : "Provision_New_Project"}
-                <button onClick={handleCloseModal} className="hover:text-red-500 transition-colors"><X className="w-5 h-5"/></button>
+          <div className="relative w-full max-w-4xl bg-[#0e0e0e] border border-white/10 shadow-2xl flex flex-col font-mono text-white">
+             {/* Header */}
+             <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center">
+                <div className="text-xs font-black tracking-[0.3em] uppercase">
+                  {editingProject ? `Edit_Project // ${editingProject.name}` : "Add_New_Project"}
+                </div>
+                <div className="flex items-center gap-6">
+                   {editingProject && (
+                      <button 
+                         type="button" 
+                         onClick={async () => {
+                           if (confirm(`Are you sure you want to delete ${editingProject.name}?`)) {
+                             await storeDeleteProject(editingProject.id);
+                             handleCloseModal();
+                           }
+                         }} 
+                         className="flex items-center gap-2 text-[#F95A56]/60 hover:text-[#F95A56] text-[9px] font-black uppercase tracking-widest transition-colors group/del"
+                      >
+                         <Trash2 className="w-3.5 h-3.5 group-hover/del:scale-110 transition-transform" />
+                         <span className="hidden sm:inline">Delete_Project</span>
+                      </button>
+                   )}
+                   <button onClick={handleCloseModal} className="hover:text-[#F95A56] transition-colors"><X className="w-5 h-5"/></button>
+                </div>
              </div>
+
+             {/* Form Content */}
              <form onSubmit={async (e) => {
-                e.preventDefault(); setIsSubmitting(true);
-                const fd = new FormData(e.currentTarget);
+                e.preventDefault();
+                setIsSubmitting(true);
+                const formData = new FormData(e.currentTarget);
+                
                 try {
-                  let lUrl = editingProject?.logoUrl || "/images/desk/vibounder-logo.png";
-                  if (logoFile && storage) lUrl = await getDownloadURL((await uploadBytes(ref(storage, `projects/${uid}/${Date.now()}_logo_${logoFile.name}`), logoFile)).ref);
-                  
+                  const currentUid = firebaseUser?.uid;
+                  if (!currentUid) return;
+
+                  // 1. Upload Logo if exists
+                  let logoUrlValue = editingProject?.logoUrl || "/images/desk/vibounder-logo.png";
+                  if (logoFile && storage) {
+                    const logoRef = ref(storage, `projects/${currentUid}/${Date.now()}_logo_${logoFile.name}`);
+                    const uploadResult = await uploadBytes(logoRef, logoFile);
+                    logoUrlValue = await getDownloadURL(uploadResult.ref);
+                  }
+
+                  // 2. Upload Screenshots
+                  const uploadedScreenshotUrls: string[] = [];
+                  if (screenshotFiles.length > 0 && storage) {
+                    for (const file of screenshotFiles) {
+                      const ssRef = ref(storage, `projects/${currentUid}/${Date.now()}_ss_${file.name}`);
+                      const uploadResult = await uploadBytes(ssRef, file);
+                      const url = await getDownloadURL(uploadResult.ref);
+                      uploadedScreenshotUrls.push(url);
+                    }
+                  }
+
+                  // 3. Combine and validate
+                  const finalScreenshots = [
+                    ...(editingProject ? editingProject.screenshots.filter((s: string) => screenshotPreviews.includes(s)) : []),
+                    ...uploadedScreenshotUrls
+                  ];
+
                   const projectData = {
-                    name: fd.get('name'), url: fd.get('url'), logoUrl: lUrl,
-                    screenshots: editingProject?.screenshots || [],
-                    about: fd.get('about') || "",
+                    name: formData.get('name') as string,
+                    url: formData.get('url') as string,
+                    logoUrl: logoUrlValue,
+                    screenshots: finalScreenshots,
+                    demoVideo: formData.get('demoVideo') as string || "",
+                    about: formData.get('about') as string || "",
+                    categories: (formData.get('categories') as string || "").split(',').map(s => s.trim()).filter(Boolean),
+                    useCases: (formData.get('useCases') as string || "").split(',').map(s => s.trim()).filter(Boolean),
+                    targetAudience: (formData.get('targetAudience') as string || "").split(',').map(s => s.trim()).filter(Boolean),
+                    platforms: (formData.get('platforms') as string || "").split(',').map(s => s.trim()).filter(Boolean),
+                    techStacks: (formData.get('techStacks') as string || "").split(',').map(s => s.trim()).filter(Boolean),
                   };
-                  if (editingProject) await updateProject(editingProject.id, projectData as any);
-                  else { const nId = await addProject(projectData as any); if (nId) setSelectedProjectId(nId); }
+
+                  if (editingProject) {
+                    await updateProject(editingProject.id, projectData as any);
+                  } else {
+                    const nId = await addProject(projectData as any);
+                    if (nId) setSelectedProjectId(nId);
+                  }
+                  
                   handleCloseModal();
-                } finally { setIsSubmitting(false); }
-             }} className="p-8 overflow-y-auto custom-scrollbar flex flex-col gap-6">
-                <div className="space-y-4">
-                   <label className="text-[10px] text-white/30 tracking-widest uppercase">Identity</label>
-                   <input name="name" required defaultValue={editingProject?.name} className="w-full bg-white/5 border-b border-white/10 p-3 text-sm focus:border-[#F95A56] outline-none" placeholder="PROJECT_NAME" />
-                   <input name="url" required defaultValue={editingProject?.liveUrl} className="w-full bg-white/5 border-b border-white/10 p-3 text-sm focus:border-[#F95A56] outline-none" placeholder="https://..." />
+                } catch (err) {
+                  console.error(err);
+                } finally {
+                  setIsSubmitting(false);
+                }
+             }} className="p-8 flex flex-col gap-16 overflow-y-auto max-h-[75vh] custom-scrollbar">
+                
+                {/* Left Monitor Config (Main Screen) */}
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                   <div className="flex items-center gap-4">
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-[#F95A56]/20 to-transparent"></div>
+                      <div className="text-[11px] font-black text-[#F95A56] tracking-[0.4em] uppercase opacity-70">
+                         Step_01 // Left_Monitor_Config
+                      </div>
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-[#F95A56]/20 to-transparent"></div>
+                   </div>
+
+                   <div className="flex flex-col gap-10 max-w-2xl mx-auto w-full">
+                      <div className="space-y-8">
+                        {/* Logo Upload */}
+                        <div className="space-y-4">
+                          <label className="text-[9px] uppercase tracking-[0.2em] font-black text-white/30 border-l-2 border-[#F95A56]/50 pl-2">Project_Identity</label>
+                          <div className="flex flex-col items-center">
+                             <label className="group/logo relative cursor-pointer">
+                                <div className="w-40 h-40 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center relative overflow-hidden group/logo shadow-2xl backdrop-blur-xl">
+                                    {logoPreview ? (
+                                       <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+                                    ) : (
+                                       <div className="flex flex-col items-center gap-3 opacity-30 group-hover/logo:opacity-100 transition-opacity">
+                                          <ImageIcon className="w-10 h-10" />
+                                          <span className="text-[8px] font-black tracking-widest text-[#F95A56]">UPLOAD_LOGO</span>
+                                       </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/logo:opacity-100 transition-opacity flex items-center justify-center">
+                                       <Upload className="w-6 h-6 text-white" />
+                                    </div>
+                                </div>
+                                <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-[#F95A56] flex items-center justify-center shadow-lg border-2 border-black group-hover/logo:scale-110 transition-transform">
+                                   <Plus className="w-4 h-4 text-white" />
+                                </div>
+                                <input name="logo" type="file" accept="image/*" className="hidden" onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setLogoFile(file);
+                                    setLogoPreview(URL.createObjectURL(file));
+                                  }
+                                }} />
+                             </label>
+                             <div className="mt-4 text-[9px] font-black uppercase tracking-[0.3em] text-white/20">
+                                {logoFile ? logoFile.name : "Square_Ratio_Preferred"}
+                             </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-6">
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] uppercase tracking-widest text-white/40">Project Name *</label>
+                            <input name="name" required defaultValue={editingProject?.name} className="w-full bg-white/5 border-b border-white/20 p-2 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="MY_COOL_UI" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] uppercase tracking-widest text-white/40">Deployment URL *</label>
+                            <input name="url" required defaultValue={editingProject?.liveUrl} className="w-full bg-white/5 border-b border-white/20 p-2 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="https://..." />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] uppercase tracking-widest text-white/40">Demo Video (Youtube Embed URL)</label>
+                          <input name="demoVideo" defaultValue={editingProject?.demoVideo} className="w-full bg-white/5 border-b border-white/20 p-2 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="https://www.youtube.com/embed/..." />
+                        </div>
+
+                        {/* Multiple Screenshot Upload */}
+                        <div className="space-y-4">
+                          <label className="text-[9px] uppercase tracking-[0.2em] font-black text-white/30 border-l-2 border-[#F95A56]/50 pl-2">Screenshots_Gallery</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                             {screenshotPreviews.map((pre, i) => (
+                               <div key={i} className="aspect-video rounded bg-black/40 border border-white/10 overflow-hidden relative group shadow-lg">
+                                  <img src={pre} className="w-full h-full object-cover" />
+                                  <button type="button" onClick={() => {
+                                      setScreenshotFiles(prev => prev.filter((_, idx) => idx !== i));
+                                      setScreenshotPreviews(prev => prev.filter((_, idx) => idx !== i));
+                                  }} className="absolute inset-0 bg-[#F95A56]/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                    <X className="w-5 h-5 text-white" />
+                                  </button>
+                               </div>
+                             ))}
+                          </div>
+                          <label>
+                            <div className="w-full py-12 border-2 border-dashed border-white/10 hover:border-[#F95A56]/30 hover:bg-[#F95A56]/5 transition-all flex flex-col items-center justify-center gap-3 cursor-pointer rounded-xl group/ss">
+                               <Upload className="w-8 h-8 text-white/10 group-hover/ss:text-[#F95A56]/40 group-hover/ss:scale-110 transition-all" />
+                               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 group-hover/ss:text-white/40">Deploy_Multiple_Screenshots_</span>
+                            </div>
+                            <input name="screenshots" type="file" multiple accept="image/*" className="hidden" onChange={(e) => {
+                                const files = Array.from(e.target.files || []);
+                                setScreenshotFiles(prev => [...prev, ...files]);
+                                const newPreviews = files.map(f => URL.createObjectURL(f));
+                                setScreenshotPreviews(prev => [...prev, ...newPreviews]);
+                            }} />
+                          </label>
+                        </div>
+                      </div>
+                   </div>
                 </div>
-                <div className="space-y-4">
-                   <label className="text-[10px] text-white/30 tracking-widest uppercase">Perspective</label>
-                   <textarea name="about" defaultValue={editingProject?.about} className="w-full bg-white/5 border border-white/10 p-4 text-sm focus:border-[#F95A56] outline-none h-32 resize-none" placeholder="Tell the world about your project..." />
+
+                {/* Right Monitor Config (Secondary Screen) */}
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
+                    <div className="flex items-center gap-4">
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-[#F95A56]/20 to-transparent"></div>
+                      <div className="text-[11px] font-black text-[#F95A56] tracking-[0.4em] uppercase opacity-70">
+                         Step_02 // Right_Monitor_Config
+                      </div>
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-[#F95A56]/20 to-transparent"></div>
+                   </div>
+
+                   <div className="flex flex-col gap-10 max-w-2xl mx-auto w-full">
+                      <div className="space-y-10">
+                        {/* Executive Summary */}
+                        <div className="space-y-4">
+                          <label className="text-[9px] uppercase tracking-[0.2em] font-black text-white/30 border-l-2 border-[#F95A56]/50 pl-2">Executive_Summary</label>
+                          <textarea name="about" defaultValue={editingProject?.about} className="w-full bg-white/5 border border-white/10 p-5 text-sm focus:border-[#F95A56] outline-none transition-all h-36 resize-none rounded-xl leading-relaxed shadow-inner" placeholder="Tell us more about this project... It will appear on the secondary monitor." />
+                        </div>
+                        
+                        {/* Detailed Specs */}
+                        <div className="space-y-8">
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] uppercase tracking-widest text-white/40">Use Cases</label>
+                              <input name="useCases" defaultValue={editingProject?.useCases?.join(', ')} className="w-full bg-white/5 border-b border-white/20 p-3 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="Internal monitoring, Feedback collection" />
+                           </div>
+                           
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] uppercase tracking-widest text-white/40">Target Audience</label>
+                              <input name="targetAudience" defaultValue={editingProject?.targetAudience?.join(', ')} className="w-full bg-white/5 border-b border-white/20 p-3 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="Developers, PMs, Stakeholders" />
+                           </div>
+
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] uppercase tracking-widest text-white/40">Categories</label>
+                              <input name="categories" defaultValue={editingProject?.categories?.join(', ')} className="w-full bg-white/5 border-b border-white/20 p-3 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="SaaS, AI, Productivity" />
+                           </div>
+
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] uppercase tracking-widest text-white/40">Tech Stacks</label>
+                              <input name="techStacks" defaultValue={editingProject?.techStacks?.join(', ')} className="w-full bg-white/5 border-b border-white/20 p-3 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="Next.js, Tailwind, Firebase" />
+                           </div>
+
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] uppercase tracking-widest text-white/40">Platforms</label>
+                              <input name="platforms" defaultValue={editingProject?.platforms?.join(', ')} className="w-full bg-white/5 border-b border-white/20 p-3 text-sm focus:border-[#F95A56] outline-none transition-all placeholder:text-white/10" placeholder="Web, Mobile, Desktop" />
+                           </div>
+                        </div>
+                      </div>
+                   </div>
                 </div>
-                <div className="flex justify-end gap-4 mt-4">
-                   <button type="button" onClick={handleCloseModal} className="px-6 py-2 text-[10px] uppercase tracking-widest hover:text-white/50">Cancel</button>
-                   <button disabled={isSubmitting} type="submit" className="px-10 py-3 bg-[#F95A56] text-white font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                      {isSubmitting ? "Provisioning..." : "Sync_Now →"}
+
+                <div className="pt-12 border-t border-white/10 flex justify-between gap-6 pb-6 max-w-2xl mx-auto w-full">
+                   <button type="button" onClick={handleCloseModal} className="px-10 py-4 text-[10px] uppercase tracking-widest hover:text-white/60 transition-colors font-black">Close_Portal</button>
+                   <button disabled={isSubmitting} type="submit" className="px-16 py-4 bg-[#F95A56] hover:brightness-110 text-white font-black text-[12px] uppercase tracking-[0.3em] transition-all disabled:opacity-50 flex items-center gap-3 shadow-[0_15px_40px_rgba(249,90,86,0.3)] rounded-sm">
+                      {isSubmitting && <Loader2 className="w-4 h-4 animate-spin"/>}
+                      {isSubmitting ? 'Syncing_Data...' : editingProject ? 'Update_Provisioning →' : 'Provision_Showcase →'}
                    </button>
                 </div>
              </form>

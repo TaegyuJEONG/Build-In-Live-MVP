@@ -14,6 +14,8 @@ interface MonitorProps {
   mainTab?: string;
   profileViewMode?: "polaroid" | "youtube" | "link";
   onEditProject?: (project: Project) => void;
+  onViewModeChange?: (mode: "screenshots" | "live" | "demo") => void;
+  isOwner?: boolean;
 }
 
 const Monitor: React.FC<MonitorProps> = ({ 
@@ -23,7 +25,9 @@ const Monitor: React.FC<MonitorProps> = ({
   viewMode,
   mainTab = "PROJECTS",
   profileViewMode = "polaroid",
-  onEditProject
+  onEditProject,
+  onViewModeChange,
+  isOwner = false
 }) => {
   const selectedProject = projects.find((p) => p.id === selectedProjectId) || projects[0];
   const isEmpty = projects.length === 0;
@@ -84,7 +88,7 @@ const Monitor: React.FC<MonitorProps> = ({
                 {project.name}
               </button>
               {/* Edit Icon - Overlay on active tab */}
-              {selectedProjectId === project.id && onEditProject && (
+              {isOwner && selectedProjectId === project.id && onEditProject && (
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
@@ -193,8 +197,32 @@ const Monitor: React.FC<MonitorProps> = ({
                    </p>
                 </div>
               </div>
+          ) : (viewMode === "live" && isOwner && !selectedProject?.isVerified) ? (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-950 p-8 text-center">
+               <div className="w-16 h-16 rounded-xl bg-[#F95A56]/10 flex items-center justify-center mb-6 border border-[#F95A56]/20">
+                  <ExternalLink className="w-8 h-8 text-[#F95A56] animate-pulse" />
+               </div>
+               <h2 className="text-lg font-black uppercase tracking-[0.3em] mb-3 text-white">SDK_Deployment_Required</h2>
+               <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.1em] max-w-xs leading-relaxed mb-8">
+                  The live feedback terminal is not yet connected to your application. Complete the setup to enable real-time collaborative testing.
+               </p>
+               <div className="flex gap-4">
+                  <button 
+                    onClick={() => onViewModeChange && onViewModeChange("screenshots")}
+                    className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[10px] font-black uppercase tracking-[0.2em] transition-all border border-white/10 rounded-sm"
+                  >
+                    Back_To_Shots
+                  </button>
+                  <a 
+                    href={`/onboarding?projectId=${selectedProject?.id}`}
+                    className="px-6 py-2.5 bg-[#F95A56] text-white text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#ff6b67] shadow-[0_4px_20px_rgba(249,90,86,0.3)] rounded-sm"
+                  >
+                    Install_SDK_Now
+                  </a>
+               </div>
+            </div>
           ) : viewMode === "screenshots" ? (
-            selectedProject?.screenshots.length > 0 ? (
+            selectedProject?.screenshots && selectedProject?.screenshots.length > 0 ? (
               <div className="w-full h-full" ref={emblaRef}>
                 <div className="flex w-full h-full">
                   {selectedProject?.screenshots.map((ss, idx) => (
@@ -228,12 +256,14 @@ const Monitor: React.FC<MonitorProps> = ({
                           EMPTY_REPOSITORY
                        </h3>
                        
-                       <button 
-                         onClick={() => onEditProject && onEditProject(selectedProject!)}
-                         className="text-[9px] font-black uppercase tracking-[0.3em] text-[#F95A56] hover:text-white transition-all duration-300 border-b border-[#F95A56]/20 pb-1 hover:border-white"
-                       >
-                          Provision_Assets_Now
-                       </button>
+                       {isOwner && (
+                         <button 
+                           onClick={() => onEditProject && onEditProject(selectedProject!)}
+                           className="text-[9px] font-black uppercase tracking-[0.3em] text-[#F95A56] hover:text-white transition-all duration-300 border-b border-[#F95A56]/20 pb-1 hover:border-white"
+                         >
+                            Provision_Assets_Now
+                         </button>
+                       )}
                     </div>
                  </div>
               </div>
@@ -279,7 +309,7 @@ const Monitor: React.FC<MonitorProps> = ({
           )}
 
           {/* Navigation Arrows */}
-          {!isEmpty && selectedProject?.screenshots.length > 1 && viewMode === "screenshots" && (
+          {!isEmpty && selectedProject?.screenshots && selectedProject?.screenshots.length > 1 && viewMode === "screenshots" && (
             <>
               <button 
                 onClick={scrollPrev}

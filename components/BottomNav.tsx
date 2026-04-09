@@ -15,12 +15,18 @@ export function BottomNav() {
   const [visitedDesk, setVisitedDesk] = useState<{ id: string, ownerId: string, ownerName: string } | null>(null);
 
   useEffect(() => {
-    const id = localStorage.getItem('lastVisitedDeskId');
-    const ownerId = localStorage.getItem('lastVisitedDeskOwnerId');
-    const ownerName = localStorage.getItem('lastVisitedDeskOwnerName');
-    if (id && ownerId && ownerName) {
-      setVisitedDesk({ id, ownerId, ownerName });
-    }
+    const handleStorageChange = () => {
+      const id = localStorage.getItem('lastVisitedDeskId');
+      const ownerId = localStorage.getItem('lastVisitedDeskOwnerId');
+      const ownerName = localStorage.getItem('lastVisitedDeskOwnerName');
+      if (id && ownerId && ownerName) {
+        setVisitedDesk({ id, ownerId, ownerName });
+      }
+    };
+
+    handleStorageChange();
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const studioName = projectId === 'portfolio' ? 'JTG' : (projectId?.charAt(0).toUpperCase()! + projectId?.slice(1));
@@ -56,18 +62,18 @@ export function BottomNav() {
           <span className="text-[8px] md:text-[10px] tracking-[0.2em] uppercase text-nowrap">{studioName}'s Desk</span>
         </div>
       ) : (
-        /* Previous Desk - Shown on Main Interface */
-        visitedDesk ? (
+        /* Previous Desk Slot - Only shown if it's NOT the user's own desk and we have a previous visit */
+        (visitedDesk && (!firebaseUser || visitedDesk.ownerId !== firebaseUser.uid)) ? (
           <Link 
-            href={`/desk/${visitedDesk.ownerId}?projectId=${visitedDesk.id}`}
+            href={`/desk/${visitedDesk.ownerId}${visitedDesk.id ? `?projectId=${visitedDesk.id}` : ''}`}
             className={`px-4 md:px-8 py-3 md:py-4 flex items-center gap-2 md:gap-3 transition-all duration-300 ${pathname === `/desk/${visitedDesk.ownerId}` ? 'bg-white/10 text-white font-black' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
           >
             <span className="text-[8px] md:text-[10px] tracking-[0.2em] uppercase font-bold text-nowrap">{visitedDesk.ownerName}'s Desk</span>
           </Link>
         ) : (
-          <button className="px-4 md:px-8 py-3 md:py-4 flex items-center gap-2 md:gap-3 text-white/10 cursor-not-allowed">
+          <div className="px-4 md:px-8 py-3 md:py-4 flex items-center gap-2 md:gap-3 text-white/10 select-none grayscale cursor-default">
             <span className="text-[8px] md:text-[10px] tracking-[0.2em] uppercase font-bold text-nowrap">Previous Desk</span>
-          </button>
+          </div>
         )
       )}
     </footer>

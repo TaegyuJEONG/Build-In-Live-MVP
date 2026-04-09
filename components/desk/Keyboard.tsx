@@ -133,26 +133,28 @@ const Keyboard: React.FC<KeyboardProps> = ({
           </div>
         </PremiumKey>
 
-        {/* Add Project Key */}
-        <PremiumKey 
-          active={isAddActive} 
-          onClick={() => {
-            setIsAddActive(true);
-            onAddProject();
-            setTimeout(() => setIsAddActive(false), 200);
-          }}
-          glowColor="rgba(0, 0, 0, 0.1)"
-          className="w-24 h-24"
-        >
-          <div className="flex flex-col items-center gap-1">
-            <div className="w-5 h-5 flex items-center justify-center">
-              <span className="text-xl font-black text-black/40 group-hover:text-black/80 transition-colors">+</span>
+        {/* Add Project Key - Only for Owner */}
+        {isOwner && (
+          <PremiumKey 
+            active={isAddActive} 
+            onClick={() => {
+              setIsAddActive(true);
+              onAddProject();
+              setTimeout(() => setIsAddActive(false), 200);
+            }}
+            glowColor="rgba(0, 0, 0, 0.1)"
+            className="w-24 h-24"
+          >
+            <div className="flex flex-col items-center gap-1">
+              <div className="w-5 h-5 flex items-center justify-center">
+                <span className="text-xl font-black text-black/40 group-hover:text-black/80 transition-colors">+</span>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-[0.1em] text-black/40 group-hover:text-black/80 transition-colors">
+                PROJECT
+              </span>
             </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-black/40 group-hover:text-black/80 transition-colors">
-              PROJECT
-            </span>
-          </div>
-        </PremiumKey>
+          </PremiumKey>
+        )}
 
         {/* Next Key */}
         <PremiumKey 

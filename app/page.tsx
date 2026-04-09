@@ -1348,11 +1348,6 @@ export default function BuildInLive() {
                   <button 
                     className="w-full py-3 md:py-4 mt-1 md:mt-2 font-black tracking-[0.2em] md:tracking-[0.3em] text-[8px] md:text-[10px] transition-all uppercase border-none cursor-pointer bg-white text-black hover:bg-white/90 active:scale-[0.98]"
                     onClick={() => {
-                      if (!data.isVerified && (data.isOwner || firebaseUser?.email === 'taegyujeong@gmail.com')) {
-                        router.push(`/feedback/${data.id}`);
-                        return;
-                      }
-                      
                       // Save for BottomNav
                       localStorage.setItem('lastVisitedDeskId', data.id);
                       localStorage.setItem('lastVisitedDeskOwnerId', data.ownerId);
@@ -1361,9 +1356,7 @@ export default function BuildInLive() {
                       router.push(`/desk/${data.ownerId}?projectId=${data.id}`);
                     }}
                   >
-                    {!data.isVerified && (data.isOwner || firebaseUser?.email === 'taegyujeong@gmail.com')
-                      ? 'ACTIVATE_COMMENTS_SDK →'
-                      : `ENTER_${data.name}_DESK`}
+                    {`ENTER_${data.name}_DESK`}
                   </button>
                 </>
               )}

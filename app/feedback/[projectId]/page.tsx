@@ -629,7 +629,7 @@ function VerificationWrapper({
                   <div className="text-[9px] text-white/40 tracking-widest uppercase">Click the button to activate the SDK and start collecting feedback</div>
                 </div>
                 <button
-                  onClick={() => router.push(`/onboarding?projectId=${projectId}`)}
+                  onClick={() => router.push(`/desk/${projectData?.ownerId}?projectId=${projectId}`)}
                   className="w-full md:w-auto px-8 py-4 bg-[#F95A56] hover:brightness-110 text-white font-black text-[11px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                 >
                   {testState === 'reporting' ? (
@@ -637,7 +637,7 @@ function VerificationWrapper({
                   ) : (
                     <Globe className="w-4 h-4" />
                   )}
-                  ACTIVATE_COMMENTS_SDK
+                  ENTER_{projectData?.name}_DESK
                 </button>
               </div>
             </div>
