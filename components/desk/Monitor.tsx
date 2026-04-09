@@ -11,6 +11,8 @@ interface MonitorProps {
   selectedProjectId: string;
   onSelectProject: (id: string) => void;
   viewMode: "screenshots" | "live" | "demo";
+  mainTab?: string;
+  profileViewMode?: "polaroid" | "youtube" | "link";
   onEditProject?: (project: Project) => void;
 }
 
@@ -19,6 +21,8 @@ const Monitor: React.FC<MonitorProps> = ({
   selectedProjectId, 
   onSelectProject,
   viewMode,
+  mainTab = "PROJECTS",
+  profileViewMode = "polaroid",
   onEditProject
 }) => {
   const selectedProject = projects.find((p) => p.id === selectedProjectId) || projects[0];
@@ -137,9 +141,45 @@ const Monitor: React.FC<MonitorProps> = ({
         {/* Content Area */}
         <div className={cn(
           "relative w-full h-full rounded-xl overflow-hidden bg-black/95 transition-all duration-700 text-white",
-          viewMode === "live" && !isEmpty ? "p-0.5 border-[4px] border-[#F95A56] shadow-[0_0_50px_rgba(249,90,86,0.5)] animate-pulse-glow" : "border border-black/10"
+          (viewMode === "live" && !isEmpty && mainTab === "PROJECTS") ? "p-0.5 border-[4px] border-[#F95A56] shadow-[0_0_50px_rgba(249,90,86,0.5)] animate-pulse-glow" : "border border-black/10"
         )}>
-          {isEmpty ? (
+          {mainTab === "PROFILE" ? (
+             <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-950 p-8 text-center select-none animate-in fade-in duration-700">
+                {profileViewMode === "polaroid" ? (
+                  <div className="flex flex-col items-center">
+                    <div className="w-48 h-60 bg-white p-3 shadow-2xl rotate-2 transform hover:rotate-0 transition-transform duration-500">
+                       <div className="w-full h-44 bg-zinc-200 overflow-hidden">
+                          <img 
+                            src={projects[0]?.logo || "/images/desk/vibounder-logo.png"} 
+                            className="w-full h-full object-cover grayscale"
+                            alt="Profile"
+                          />
+                       </div>
+                       <div className="mt-4 text-center">
+                          <span className="font-serif italic text-black/40 text-sm">Artist_Profile.png</span>
+                       </div>
+                    </div>
+                    <p className="mt-12 text-[10px] font-black uppercase tracking-[0.4em] text-white/30">Polaroid_Collection_Coming_Soon</p>
+                  </div>
+                ) : profileViewMode === "youtube" ? (
+                   <div className="w-full h-full flex flex-col items-center justify-center">
+                      <div className="w-20 h-20 rounded-full bg-[#FF0000]/10 flex items-center justify-center mb-6">
+                         <ExternalLink className="w-8 h-8 text-[#FF0000]" />
+                      </div>
+                      <h3 className="text-xl font-black uppercase tracking-[0.3em] mb-3">Vlog_Transmissions</h3>
+                      <button className="text-[9px] font-black uppercase tracking-[0.3em] text-white/40 border border-white/10 px-4 py-2 hover:bg-white/5 transition-all">Launch_YouTube_Channel</button>
+                   </div>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center">
+                      <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6 border border-white/10">
+                         <ExternalLink className="w-8 h-8 text-white/40" />
+                      </div>
+                      <h3 className="text-xl font-black uppercase tracking-[0.3em] mb-3">External_Hub</h3>
+                      <button className="text-[9px] font-black uppercase tracking-[0.3em] text-white/40 border border-white/10 px-4 py-2 hover:bg-white/5 transition-all">Open_Portfolio_Website</button>
+                   </div>
+                )}
+             </div>
+          ) : isEmpty ? (
              <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-950 p-12 text-center select-none">
                 <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 mb-8 font-mono">System_Idle</div>
                 <div className="relative group/add flex flex-col items-center">

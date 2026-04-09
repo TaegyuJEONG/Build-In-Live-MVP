@@ -47,6 +47,25 @@ export type Comment = {
   timestamp: string;
 };
 
+export type Polaroid = {
+  id: string;
+  ownerId: string;
+  type?: 'POLAROID' | 'YOUTUBE' | 'LINK' | 'POSTIT';
+  scope?: 'PROFILE' | 'ROLLING_PAPER';
+  authorId?: string;
+  authorName?: string;
+  x: number;
+  y: number;
+  image?: string;
+  youtubeUrl?: string;
+  url?: string;
+  text: string;
+  rotation: number;
+  scale: number;
+  date: string;
+  createdAt?: any;
+};
+
 export type Project = {
   id: string;
   ownerId: string;
@@ -76,6 +95,7 @@ interface AppState {
   markers: Marker[];
   comments: Record<string, Comment[]>;
   projects: Project[];
+  polaroids: Polaroid[];
   currentProject: string;
   isLoading: boolean;
   
@@ -93,6 +113,12 @@ interface AppState {
   deleteProject: (projectId: string) => Promise<void>;
   updateProject: (projectId: string, data: Partial<Project>) => Promise<void>;
   addProject: (data: Omit<Project, 'id' | 'createdAt' | 'feedbackCount' | 'ownerId'>) => Promise<string>;
+
+  // Polaroid Management
+  addPolaroid: (uid: string, data: Omit<Polaroid, 'id' | 'ownerId' | 'createdAt'>) => Promise<void>;
+  updatePolaroid: (uid: string, id: string, data: Partial<Polaroid>) => Promise<void>;
+  deletePolaroid: (uid: string, id: string) => Promise<void>;
+  subscribeToPolaroids: (uid: string) => () => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -102,6 +128,7 @@ export const useStore = create<AppState>((set, get) => ({
   markers: [],
   comments: {},
   projects: [],
+  polaroids: [],
   currentProject: 'home',
   isLoading: true,
 
@@ -279,5 +306,50 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     return projectRef.id;
+  },
+
+  addPolaroid: async (uid, data) => {
+    const currentDb = db;
+    if (!currentDb) return;
+    await addDoc(collection(currentDb, `users/${uid}/polaroids`), {
+      ...data,
+      type: data.type || 'POLAROID',
+      ownerId: uid,
+      createdAt: serverTimestamp()
+    });
+  },
+
+  updatePolaroid: async (uid, id, data) => {
+    const currentDb = db;
+    if (!currentDb) return;
+    // Filter out undefined values to prevent Firebase errors
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(([_, v]) => v !== undefined)
+    );
+    if (Object.keys(cleanData).length === 0) return;
+    await updateDoc(doc(currentDb, `users/${uid}/polaroids`, id), cleanData);
+  },
+
+  deletePolaroid: async (uid, id) => {
+    const currentDb = db;
+    if (!currentDb) return;
+    await deleteDoc(doc(currentDb, `users/${uid}/polaroids`, id));
+  },
+
+  subscribeToPolaroids: (uid) => {
+    const currentDb = db;
+    if (!currentDb) return () => {};
+    const q = query(collection(currentDb, `users/${uid}/polaroids`), orderBy('createdAt', 'asc'));
+    return onSnapshot(q, (snapshot) => {
+      const polaroids = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return { 
+          id: doc.id, 
+          ...data,
+          type: data.type || 'POLAROID' // Default for legacy data
+        } as Polaroid;
+      });
+      set({ polaroids });
+    });
   }
 }));

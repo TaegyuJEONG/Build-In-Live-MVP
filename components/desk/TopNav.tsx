@@ -2,9 +2,12 @@
 
 import React from "react";
 
-const TopNav = () => {
-  const [activeTab, setActiveTab] = React.useState("PROJECTS");
+interface TopNavProps {
+  activeTab: string;
+  onTabChange: (tabId: string) => void;
+}
 
+const TopNav = ({ activeTab, onTabChange }: TopNavProps) => {
   const tabs = [
     { id: "PROJECTS", label: "PROJECTS" },
     { id: "PROFILE", label: "PROFILE" },
@@ -17,7 +20,7 @@ const TopNav = () => {
         {tabs.map((tab) => (
           <div key={tab.id} className="relative flex flex-col items-center">
             <button 
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => onTabChange(tab.id)}
               className={`pb-2 px-1 text-[11px] font-black tracking-[0.3em] transition-all duration-300 uppercase cursor-pointer ${
                 activeTab === tab.id 
                   ? "text-white" 

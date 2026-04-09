@@ -7,10 +7,60 @@ import { cn } from "@/lib/utils";
 interface SecondaryScreenProps {
   project: Project;
   viewMode?: string;
+  mainTab?: string;
 }
 
-const SecondaryScreen: React.FC<SecondaryScreenProps> = ({ project, viewMode }) => {
-  const isLive = viewMode === "live" && project?.feedbackId;
+const SecondaryScreen: React.FC<SecondaryScreenProps> = ({ project, viewMode, mainTab = "PROJECTS" }) => {
+  const isLive = viewMode === "live" && project?.feedbackId && mainTab === "PROJECTS";
+
+  if (mainTab === "PROFILE") {
+    return (
+      <div className="relative w-full group flex flex-col items-center bg-transparent translate-y-2">
+         <div className="w-full h-[460px] bg-[#fcfcfc] rounded-[2rem] border-[6px] border-[#f0f0f0] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.2)] flex flex-col p-1.5 backdrop-blur-sm">
+            <div className="flex-1 w-full bg-[#0a0a0a] rounded-[1.5rem] overflow-hidden flex flex-col p-8 border border-white/5 animate-in fade-in duration-700">
+               <div className="mb-10">
+                  <h3 className="text-white/20 text-[8px] font-black uppercase tracking-[0.4em] mb-4">Identity_Core</h3>
+                  <h2 className="text-2xl font-black text-white tracking-tight uppercase leading-none">TAEGYU<br/>JEONG</h2>
+                  <div className="mt-4 h-[1px] w-12 bg-[#F95A56]"></div>
+               </div>
+
+               <div className="space-y-8">
+                  <section>
+                     <h3 className="text-white/20 text-[8px] font-black uppercase tracking-[0.4em] mb-3">Professional_Focus</h3>
+                     <p className="text-white/60 text-[11px] font-medium leading-relaxed uppercase tracking-widest">
+                        Full-Stack Engineer<br/>
+                        UI/UX Architect<br/>
+                        Creative Technologist
+                     </p>
+                  </section>
+
+                  <section>
+                      <h3 className="text-white/20 text-[8px] font-black uppercase tracking-[0.4em] mb-3">Current_Status</h3>
+                      <div className="flex items-center gap-2">
+                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                         <span className="text-white/80 text-[10px] font-black uppercase tracking-widest">Available_For_Scale</span>
+                      </div>
+                  </section>
+
+                  <section className="pt-4">
+                      <div className="p-4 bg-white/5 border border-white/5 rounded-xl">
+                         <div className="text-[7px] text-white/20 font-black uppercase tracking-[0.3em] mb-2">System_Note</div>
+                         <p className="text-[9px] text-white/40 leading-relaxed uppercase font-mono tracking-tighter">
+                            Building immersive digital experiences that bridge the gap between human intuition and machine precision.
+                         </p>
+                      </div>
+                  </section>
+               </div>
+            </div>
+         </div>
+         <div className="relative flex flex-col items-center -mt-px z-0">
+          <div className="w-8 h-10 bg-gradient-to-b from-[#f0f0f0] to-[#e5e5e5] shadow-inner border-x border-black/[0.02]"></div>
+          <div className="w-32 h-1.5 bg-[#f5f5f5] rounded-sm shadow-[0_4px_10px_rgba(0,0,0,0.15)] border-b border-black/5"></div>
+          <div className="w-40 h-2 bg-black/20 blur-md rounded-full mt-0.5 opacity-25"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (!project) {
     return (
