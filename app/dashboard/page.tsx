@@ -1181,26 +1181,6 @@ export default function BuildInLive() {
                 {data.isOwner && !isEditingProject && (
                   <>
                     <button 
-                      className="text-white/30 hover:text-white transition-colors p-2 cursor-pointer"
-                      onClick={() => {
-                        setEditedData({
-                          name: selectedCube.projectData.name,
-                          url: selectedCube.projectData.url,
-                          description: selectedCube.projectData.description || '',
-                          tagline: selectedCube.projectData.tagline || '',
-                          logoUrl: selectedCube.projectData.logoUrl || '',
-                          screenshots: (selectedCube.projectData.screenshots || []).join(', '),
-                          categories: (selectedCube.projectData.categories || []).join(', '),
-                          techStacks: (selectedCube.projectData.techStacks || []).join(', '),
-                          demoVideo: selectedCube.projectData.demoVideo || ''
-                        });
-                        setIsEditingProject(true);
-                      }}
-                      title="Edit Project"
-                    >
-                      <PenSquare className="w-3.5 h-3.5" />
-                    </button>
-                    <button 
                       className="text-white/30 hover:text-[#F95A56] transition-colors p-2 cursor-pointer"
                       onClick={() => setShowProjectDeleteConfirm(true)}
                       title="Delete Project"
@@ -1328,6 +1308,14 @@ export default function BuildInLive() {
                 </form>
               ) : (
                 <>
+                  {/* Owner */}
+                  <div>
+                    <div className="text-[8px] md:text-[9px] text-white/40 tracking-[0.3em] uppercase mb-2 md:mb-3">Desk Owner</div>
+                    <div className="text-[11px] md:text-xs font-black text-white tracking-widest uppercase">
+                      {selectedOwnerName || "User"}
+                    </div>
+                  </div>
+
                   {/* Description */}
                   {data.description && (
                     <div>
