@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { auth } from "@/lib/firebase"
 import { 
   signInWithEmailAndPassword, 
@@ -10,14 +10,23 @@ import {
 } from "firebase/auth"
 import { useRouter } from "next/navigation"
 import { Mail, Lock, Chrome } from "lucide-react"
+import { useStore } from "@/lib/store"
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(false)
+  const [isLogin, setIsLogin] = useState(true) // Default to login mode
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const { firebaseUser } = useStore()
+
+  // If already logged in, redirect away from auth page
+  useEffect(() => {
+    if (firebaseUser) {
+      router.push("/")
+    }
+  }, [firebaseUser, router])
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,6 +39,7 @@ export default function AuthPage() {
       } else {
         await createUserWithEmailAndPassword(auth, email, password)
       }
+      // Redirection will be handled by useEffect or AuthGuard
       router.push("/")
     } catch (err: any) {
       let msg = err.message;

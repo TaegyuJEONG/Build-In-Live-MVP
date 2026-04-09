@@ -18,11 +18,17 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const checkOnboarding = async () => {
       if (firebaseUser && !isLoading) {
-        // Skip check for onboarding/auth/feedback pages
-        if (pathname === '/onboarding' || pathname.startsWith('/auth') || pathname.startsWith('/feedback')) return;
-
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        const userDoc = await getDoc(doc(db!, 'users', firebaseUser.uid));
         const userData = userDoc.data();
+
+        // If user already has a project and tries to visit onboarding, redirect to home
+        if (userData?.hasProject && pathname === '/onboarding') {
+          router.push('/');
+          return;
+        }
+
+        // Skip other checks for auth/feedback pages and onboarding (if not already handled)
+        if (pathname === '/onboarding' || pathname.startsWith('/auth') || pathname.startsWith('/feedback')) return;
         
         if (!userData?.hasProject) {
           router.push('/onboarding');

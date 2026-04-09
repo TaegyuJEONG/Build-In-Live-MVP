@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react"
 import { useStore } from "@/lib/store"
 import { db, storage } from "@/lib/firebase"
-import { collection, addDoc, doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { collection, addDoc, doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Globe, FileText, HelpCircle, Check, Copy, AlertTriangle, Terminal, ChevronDown, ChevronUp, User, Image as ImageIcon, Upload, Plus, Trash2, Loader2, X } from "lucide-react"
 
 export default function OnboardingPage() {
@@ -15,6 +15,7 @@ export default function OnboardingPage() {
   
   const [step, setStep] = useState<number | 'report'>(1)
   const [loading, setLoading] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const [issueMemo, setIssueMemo] = useState("")
   const [formData, setFormData] = useState({
     url: "",
@@ -31,6 +32,7 @@ export default function OnboardingPage() {
   const [screenshotFiles, setScreenshotFiles] = useState<File[]>([])
   const [screenshotPreviews, setScreenshotPreviews] = useState<string[]>([])
   const router = useRouter()
+  const pathname = usePathname()
 
   // Initial setup based on URL params
   useEffect(() => {
@@ -39,6 +41,39 @@ export default function OnboardingPage() {
       setStep(3); // Jump directly to SDK step (now Step 3)
     }
   }, [projectIdParam]);
+
+  useEffect(() => {
+    if (firebaseUser && db) {
+      const checkUser = async () => {
+        try {
+          const userRef = doc(db!, "users", firebaseUser.uid);
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            
+            // If user already has a project and tries to visit onboarding, redirect to home
+            if (data.hasProject && pathname === '/onboarding' && !projectIdParam) {
+              router.push('/');
+              return;
+            }
+
+            // If user already has a name, and we are at step 1, jump to Step 2
+            if (data.displayName && step === 1) {
+              setStep(2);
+            }
+          }
+        } catch (e) {
+          console.error("Error checking user identity:", e);
+        } finally {
+          setCheckingAuth(false);
+        }
+      };
+      checkUser();
+    } else if (firebaseUser === null) {
+      // If we know there's no user, stop checking (AuthGuard will handle the redirect)
+      setCheckingAuth(false);
+    }
+  }, [firebaseUser, step, pathname, projectIdParam, router]);
 
   // Load existing project if provided
   useEffect(() => {
@@ -256,6 +291,16 @@ async headers() {
 Please review the project structure, identify all relevant files, and apply these changes to ensure the feedback system works on every page.`
 
   const feedbackUrl = `https://build-in-live-mvp.vercel.app/feedback/${createdProjectId}`
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center font-mono">
+        <div className="text-[10px] tracking-[0.4em] text-[#F95A56] animate-pulse uppercase">
+          VERIFYING_IDENTITY...
+        </div>
+      </div>
+    )
+  }
 
   if (step === 'report') {
     return (
