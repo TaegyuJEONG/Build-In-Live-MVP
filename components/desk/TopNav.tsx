@@ -15,8 +15,8 @@ const TopNav = ({ activeTab, onTabChange }: TopNavProps) => {
   ];
 
   return (
-    <header className="fixed top-8 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center pointer-events-auto">
-      <nav className="flex items-center gap-12 px-6">
+    <header className="fixed top-8 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center pointer-events-auto w-full md:w-auto px-4 md:px-0">
+      <nav className="flex items-center gap-6 md:gap-12 px-6">
         {tabs.map((tab) => (
           <div key={tab.id} className="relative flex flex-col items-center">
             <button 

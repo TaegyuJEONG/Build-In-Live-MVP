@@ -10,6 +10,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { cn } from "@/lib/utils";
 import { Plus, Minus, Focus, X, Upload, Loader2, Image as ImageIcon, Trash2, Youtube, Link as LinkIcon, Camera, MousePointer2, RotateCw, Maximize2, Link2, ExternalLink, StickyNote } from "lucide-react";
 import { SnapshotOverlay } from "@/components/SnapshotOverlay";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useStore, Project as StoreProject, Polaroid } from "@/lib/store";
 import { storage, db } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -116,6 +117,7 @@ export default function UserDeskPage() {
   const lastMousePos = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   // --- UNDO / REDO SYSTEM ---
   const [undoStack, setUndoStack] = useState<any[]>([]);
@@ -206,19 +208,25 @@ export default function UserDeskPage() {
      }
    }, [userProjects, searchParams, selectedProjectId]);
 
-    // Handle tab-specific origins
+    // Handle tab-specific origins and mobile scaling
     useEffect(() => {
-      if (mainTab === 'PROFILE') {
-        setPosition({ x: 104, y: -18 });
-        setScale(0.60);
-      } else if (mainTab === 'PROJECTS') {
-        setPosition({ x: -6, y: -29 });
-        setScale(0.7);
-      } else if (mainTab === 'ROLLING_PAPER') {
+      if (isMobile) {
+        // Zoom out to show whole page like Figma on mobile
+        setScale(0.28);
         setPosition({ x: 0, y: 0 });
-        setScale(0.7);
+      } else {
+        if (mainTab === 'PROFILE') {
+          setPosition({ x: 104, y: -18 });
+          setScale(0.60);
+        } else if (mainTab === 'PROJECTS') {
+          setPosition({ x: -6, y: -29 });
+          setScale(0.7);
+        } else if (mainTab === 'ROLLING_PAPER') {
+          setPosition({ x: 0, y: 0 });
+          setScale(0.7);
+        }
       }
-    }, [mainTab]);
+    }, [mainTab, isMobile]);
 
    // Track last visited desk
    useEffect(() => {
@@ -371,7 +379,7 @@ export default function UserDeskPage() {
          <div className="absolute bottom-10 inset-x-0 flex justify-center pointer-events-auto">
             <BottomNav />
          </div>
-         <aside className="absolute left-4 md:left-12 top-1/2 -translate-y-1/2 flex flex-col gap-0 p-0 pointer-events-auto select-none scale-90 md:scale-100 origin-left">
+          <aside className="absolute hidden md:flex left-4 md:left-12 top-1/2 -translate-y-1/2 flex-col gap-0 p-0 pointer-events-auto select-none scale-90 md:scale-100 origin-left">
             <div className="px-2 py-4 mb-4 border-l-2 border-white/20">
                <div className="text-[9px] font-black tracking-[0.3em] uppercase text-white/30 mb-1">COORDINATES</div>
                <div className="text-[11px] font-mono text-white">{`${Math.round(-position.x)}.${Math.round(-position.y)}.${scale.toFixed(2)}_INF`}</div>
@@ -489,8 +497,8 @@ export default function UserDeskPage() {
         }}
       >
         {mainTab === "PROJECTS" ? (
-          <main className="flex flex-col items-center gap-12 w-full max-w-7xl pt-10">
-             <div className="flex flex-col lg:flex-row items-stretch justify-center gap-10 w-full lg:max-w-7xl mx-auto">
+          <main className="flex flex-col items-center gap-12 w-full max-w-7xl pt-10 px-4 md:px-0">
+             <div className="flex flex-row items-stretch justify-center gap-10 w-full lg:max-w-7xl mx-auto">
                 {/* Master: Main Monitor defines the row height */}
                 <div className="w-full max-w-4xl relative">
                    <Monitor projects={userProjects} selectedProjectId={selectedProjectId || ""} onSelectProject={setSelectedProjectId} viewMode={viewMode} mainTab={mainTab} profileViewMode={profileViewMode} onEditProject={handleEditProject} onViewModeChange={setViewMode} isOwner={isOwner} />
@@ -503,11 +511,17 @@ export default function UserDeskPage() {
                    </div>
                 </div>
              </div>
-             <div className="w-full max-w-2xl -mt-6">
-                <Keyboard 
-                  viewMode={viewMode} 
-                  onViewModeChange={setViewMode} 
-                  onPrev={() => {
+              <div className="w-full max-w-2xl -mt-6">
+                 <Keyboard 
+                   viewMode={viewMode} 
+                   onViewModeChange={(mode) => {
+                     if (isMobile && mode === "live" && selectedProjectId) {
+                       router.push(`/feedback/${selectedProjectId}`);
+                       return;
+                     }
+                     setViewMode(mode);
+                   }} 
+                   onPrev={() => {
                     const idx = userProjects.findIndex(p => p.id === selectedProjectId);
                     setSelectedProjectId(userProjects[(idx - 1 + userProjects.length) % userProjects.length]?.id);
                   }}
