@@ -35,7 +35,7 @@ export function BottomNav() {
   const isMyDeskActive = firebaseUser && pathname === `/desk/${firebaseUser.uid}`;
 
   return (
-    <footer className="fixed bottom-6 md:bottom-12 left-1/2 -translate-x-1/2 flex items-center bg-[#0e0e0e]/80 backdrop-blur-xl z-[9005] border border-white/10 rounded-full overflow-hidden shadow-2xl">
+    <footer className="fixed bottom-10 md:bottom-12 left-1/2 -translate-x-1/2 flex items-center bg-[#0e0e0e]/80 backdrop-blur-xl z-[9005] border border-white/10 rounded-full overflow-hidden shadow-2xl">
       {/* Studio / Main */}
       <Link 
         href="/"

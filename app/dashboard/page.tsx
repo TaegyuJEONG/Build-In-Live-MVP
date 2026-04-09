@@ -757,6 +757,13 @@ export default function BuildInLive() {
     setMounted(true)
     init();
     setProject('home');
+
+    // Mobile specific defaults
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    if (isMobile) {
+      setZoom(0.4);
+      setShowAnalysis(false);
+    }
   }, []);
 
   React.useEffect(() => {
@@ -1036,7 +1043,7 @@ export default function BuildInLive() {
       </header>
 
       {/* Lateral Spatial Controls */}
-      <aside className="fixed left-4 md:left-8 top-1/2 -translate-y-1/2 flex flex-col gap-0 z-50 p-0 bg-transparent scale-90 md:scale-100 origin-left">
+      <aside className="hidden md:flex fixed left-4 md:left-8 top-1/2 -translate-y-1/2 flex-col gap-0 z-50 p-0 bg-transparent scale-90 md:scale-100 origin-left">
         <div className="px-2 py-4 mb-4 border-l border-white/20">
           <div className="text-[8px] tracking-[0.3em] uppercase text-white/30 mb-1">COORDINATES</div>
           <div className="text-[10px] tracking-widest uppercase text-white">{getCoordinates()}</div>
