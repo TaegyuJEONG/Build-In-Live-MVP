@@ -106,13 +106,71 @@ export default function UserDeskPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [screenshotPreviews, setScreenshotPreviews] = useState<string[]>([]);
   
-  const [scale, setScale] = useState(1.0);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [scale, setScale] = useState(0.7);
+  const [position, setPosition] = useState({ x: -6, y: -29 });
   const [isDragging, setIsDragging] = useState(false);
   const isOwner = firebaseUser?.uid === uid;
   const lastMousePos = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
+
+  // --- UNDO / REDO SYSTEM ---
+  const [undoStack, setUndoStack] = useState<any[]>([]);
+  const [redoStack, setRedoStack] = useState<any[]>([]);
+
+  const addToHistory = useCallback((action: any) => {
+    setUndoStack(prev => [...prev.slice(-49), action]); 
+    setRedoStack([]);
+  }, []);
+
+  const handleUndo = useCallback(async () => {
+    if (undoStack.length === 0) return;
+    const action = undoStack[undoStack.length - 1];
+    setUndoStack(prev => prev.slice(0, -1));
+    setRedoStack(prev => [...prev, action]);
+
+    if (action.type === 'MOVE') {
+      await updatePolaroid(uid, action.id, { x: action.prev.x, y: action.prev.y });
+    } else if (action.type === 'ROTATE') {
+      await updatePolaroid(uid, action.id, { rotation: action.prev });
+    } else if (action.type === 'SCALE') {
+      await updatePolaroid(uid, action.id, { scale: action.prev });
+    }
+  }, [undoStack, uid, updatePolaroid]);
+
+  const handleRedo = useCallback(async () => {
+    if (redoStack.length === 0) return;
+    const action = redoStack[redoStack.length - 1];
+    setRedoStack(prev => prev.slice(0, -1));
+    setUndoStack(prev => [...prev, action]);
+
+    if (action.type === 'MOVE') {
+      await updatePolaroid(uid, action.id, { x: action.next.x, y: action.next.y });
+    } else if (action.type === 'ROTATE') {
+      await updatePolaroid(uid, action.id, { rotation: action.next });
+    } else if (action.type === 'SCALE') {
+      await updatePolaroid(uid, action.id, { scale: action.next });
+    }
+  }, [redoStack, uid, updatePolaroid]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+       // Skip if typing in an input or textarea
+       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+
+       if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) handleRedo();
+          else handleUndo();
+       } else if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+          e.preventDefault();
+          handleRedo();
+       }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
+  // ---------------------------
 
   const getYoutubeVideoId = (url: string) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -183,6 +241,36 @@ export default function UserDeskPage() {
 
   useEffect(() => {
     const handleNativeWheel = (e: WheelEvent) => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      // Check if the scroll event is happening inside a scrollable element
+      let isScrollableTarget = false;
+      let curr = e.target as HTMLElement;
+      while (curr && curr !== container) {
+        const style = window.getComputedStyle(curr);
+        const isOverflow = style.overflowY === 'auto' || style.overflowY === 'scroll' || 
+                           style.overflowX === 'auto' || style.overflowX === 'scroll';
+        
+        if (isOverflow || curr.tagName === 'IFRAME') {
+          const canScrollY = curr.scrollHeight > curr.clientHeight && 
+                            (style.overflowY === 'auto' || style.overflowY === 'scroll');
+          const canScrollX = curr.scrollWidth > curr.clientWidth && 
+                            (style.overflowX === 'auto' || style.overflowX === 'scroll');
+          
+          if (canScrollY || canScrollX || curr.tagName === 'IFRAME') {
+            isScrollableTarget = true;
+            break;
+          }
+        }
+        curr = curr.parentElement as HTMLElement;
+      }
+
+      // If it's a scrollable target and not a zoom gesture (ctrlKey), let it scroll naturally
+      if (isScrollableTarget && !e.ctrlKey) {
+        return;
+      }
+
       e.preventDefault();
       if (e.ctrlKey) {
         const zoomSpeed = 0.005;
@@ -258,7 +346,7 @@ export default function UserDeskPage() {
             </div>
             <button className="w-12 h-12 flex items-center justify-center hover:bg-white/5 text-white/30" onClick={() => setScale(s => Math.min(s + 0.1, 5))}><Plus className="w-4 h-4"/></button>
             <button className="w-12 h-12 flex items-center justify-center hover:bg-white/5 text-white/30" onClick={() => setScale(s => Math.max(s - 0.1, 0.1))}><Minus className="w-4 h-4"/></button>
-            <button className="w-12 h-12 flex items-center justify-center bg-white text-black my-2 shadow-xl" onClick={() => { setPosition({ x: 0, y: -80 }); setScale(0.8); }}><Focus className="w-4 h-4"/></button>
+            <button className="w-12 h-12 flex items-center justify-center bg-white text-black my-2 shadow-xl" onClick={() => { setPosition({ x: -6, y: -29 }); setScale(0.7); }}><Focus className="w-4 h-4"/></button>
             {isOwner && mainTab === "PROFILE" && (
               <div className="flex flex-col gap-3 mt-6">
                 <button 
@@ -354,11 +442,20 @@ export default function UserDeskPage() {
       >
         {mainTab === "PROJECTS" ? (
           <main className="flex flex-col items-center gap-12 w-full max-w-7xl pt-10">
-             <div className="flex flex-col lg:flex-row items-center gap-10 w-full lg:items-end">
-                <div className="flex-1 w-full max-w-4xl"><Monitor projects={userProjects} selectedProjectId={selectedProjectId || ""} onSelectProject={setSelectedProjectId} viewMode={viewMode} mainTab={mainTab} profileViewMode={profileViewMode} onEditProject={handleEditProject} onViewModeChange={setViewMode} isOwner={isOwner} /></div>
-                <div className="w-full lg:w-96"><SecondaryScreen project={selectedProject} viewMode={viewMode} mainTab={mainTab} /></div>
+             <div className="flex flex-col lg:flex-row items-stretch justify-center gap-10 w-full lg:max-w-7xl mx-auto">
+                {/* Master: Main Monitor defines the row height */}
+                <div className="w-full max-w-4xl relative">
+                   <Monitor projects={userProjects} selectedProjectId={selectedProjectId || ""} onSelectProject={setSelectedProjectId} viewMode={viewMode} mainTab={mainTab} profileViewMode={profileViewMode} onEditProject={handleEditProject} onViewModeChange={setViewMode} isOwner={isOwner} />
+                </div>
+                
+                {/* Slave: Secondary Screen fills the available height without expanding it */}
+                <div className="w-full lg:w-96 relative min-h-[460px] lg:min-h-0">
+                   <div className="lg:absolute lg:inset-0 flex flex-col">
+                      <SecondaryScreen project={selectedProject} viewMode={viewMode} mainTab={mainTab} />
+                   </div>
+                </div>
              </div>
-             <div className="w-full max-w-2xl">
+             <div className="w-full max-w-2xl -mt-6">
                 <Keyboard 
                   viewMode={viewMode} 
                   onViewModeChange={setViewMode} 
@@ -420,11 +517,17 @@ export default function UserDeskPage() {
                             });
                          };
 
-                         const onMU = () => {
+                         const onMU = (muE: MouseEvent) => {
                             setDraggingId(null);
                             document.body.removeChild(shield);
                             window.removeEventListener('mousemove', onMM);
                             window.removeEventListener('mouseup', onMU);
+
+                            const finalX = spX + (muE.clientX - startX) / scale;
+                            const finalY = spY + (muE.clientY - startY) / scale;
+                            if (Math.abs(finalX - spX) > 1 || Math.abs(finalY - spY) > 1) {
+                               addToHistory({ type: 'MOVE', id: p.id, prev: { x: spX, y: spY }, next: { x: finalX, y: finalY } });
+                            }
                          };
 
                          window.addEventListener('mousemove', onMM);
@@ -690,15 +793,42 @@ export default function UserDeskPage() {
                                    onMouseDown={(e) => {
                                       e.stopPropagation(); const sX = e.clientX, sT = p.scale || 1;
                                       const onMM = (m: MouseEvent) => updatePolaroid(uid, p.id, { scale: Math.max(0.5, Math.min(2, sT + (m.clientX - sX) * (isW ? -1 : 1) / 100)) });
-                                      const onMU = () => { window.removeEventListener('mousemove', onMM); window.removeEventListener('mouseup', onMU); };
+                                      const onMU = (muE: MouseEvent) => { 
+                                         window.removeEventListener('mousemove', onMM); window.removeEventListener('mouseup', onMU); 
+                                         const finalS = Math.max(0.5, Math.min(2, sT + (muE.clientX - sX) * (isW ? -1 : 1) / 100));
+                                         if (Math.abs(finalS - sT) > 0.01) addToHistory({ type: 'SCALE', id: p.id, prev: sT, next: finalS });
+                                      };
                                       window.addEventListener('mousemove', onMM); window.addEventListener('mouseup', onMU);
                                    }}
                                  />
                                  <div className={cn("absolute w-8 h-8 cursor-alias z-[205]", isN ? "-top-6" : "-bottom-6", isW ? "-left-6" : "-right-6")}
                                    onMouseDown={(e) => {
-                                      e.stopPropagation(); const sX = e.clientX, sR = p.rotation;
-                                      const onMM = (m: MouseEvent) => updatePolaroid(uid, p.id, { rotation: sR + (m.clientX - sX) });
-                                      const onMU = () => { window.removeEventListener('mousemove', onMM); window.removeEventListener('mouseup', onMU); };
+                                      e.stopPropagation(); 
+                                      const rect = (e.currentTarget as HTMLElement).closest('.group\\/card')?.getBoundingClientRect();
+                                      if (!rect) return;
+                                      
+                                      const centerX = rect.left + rect.width / 2;
+                                      const centerY = rect.top + rect.height / 2;
+                                      const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+                                      const sR = p.rotation || 0;
+
+                                      const onMM = (m: MouseEvent) => {
+                                         const currentAngle = Math.atan2(m.clientY - centerY, m.clientX - centerX);
+                                         let delta = currentAngle - startAngle;
+                                         if (delta > Math.PI) delta -= 2 * Math.PI;
+                                         if (delta < -Math.PI) delta += 2 * Math.PI;
+                                         updatePolaroid(uid, p.id, { rotation: sR + delta * (180 / Math.PI) });
+                                      };
+
+                                      const onMU = (muE: MouseEvent) => { 
+                                         window.removeEventListener('mousemove', onMM); window.removeEventListener('mouseup', onMU); 
+                                         const currentAngle = Math.atan2(muE.clientY - centerY, muE.clientX - centerX);
+                                         let delta = currentAngle - startAngle;
+                                         if (delta > Math.PI) delta -= 2 * Math.PI;
+                                         if (delta < -Math.PI) delta += 2 * Math.PI;
+                                         const finalR = sR + delta * (180 / Math.PI);
+                                         if (Math.abs(finalR - sR) > 1) addToHistory({ type: 'ROTATE', id: p.id, prev: sR, next: finalR });
+                                      };
                                       window.addEventListener('mousemove', onMM); window.addEventListener('mouseup', onMU);
                                    }}
                                  />

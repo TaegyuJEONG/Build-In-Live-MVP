@@ -15,8 +15,9 @@ const SecondaryScreen: React.FC<SecondaryScreenProps> = ({ project, viewMode, ma
 
   if (mainTab === "PROFILE") {
     return (
-      <div className="relative w-full group flex flex-col items-center bg-transparent translate-y-2">
-         <div className="w-full h-[460px] bg-[#fcfcfc] rounded-[2rem] border-[6px] border-[#f0f0f0] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.2)] flex flex-col p-1.5 backdrop-blur-sm">
+      <div className="relative w-full h-full group flex flex-col items-center bg-transparent translate-y-2">
+         <div className="w-full h-[45px] flex-shrink-0" />
+         <div className="w-full flex-1 bg-[#fcfcfc] rounded-[2rem] border-[6px] border-[#f0f0f0] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.2)] flex flex-col p-1.5 backdrop-blur-sm">
             <div className="flex-1 w-full bg-[#0a0a0a] rounded-[1.5rem] overflow-hidden flex flex-col p-8 border border-white/5 animate-in fade-in duration-700">
                <div className="mb-10">
                   <h3 className="text-white/20 text-[8px] font-black uppercase tracking-[0.4em] mb-4">Identity_Core</h3>
@@ -64,8 +65,9 @@ const SecondaryScreen: React.FC<SecondaryScreenProps> = ({ project, viewMode, ma
 
   if (!project) {
     return (
-      <div className="relative w-full group flex flex-col items-center bg-transparent translate-y-2">
-        <div className="w-full h-[460px] bg-[#fcfcfc] rounded-[2rem] border-[6px] border-[#f0f0f0] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.2)] flex flex-col p-1.5 backdrop-blur-sm">
+      <div className="relative w-full h-full group flex flex-col items-center bg-transparent translate-y-2">
+        <div className="w-full h-[45px] flex-shrink-0" />
+        <div className="w-full flex-1 bg-[#fcfcfc] rounded-[2rem] border-[6px] border-[#f0f0f0] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.2)] flex flex-col p-1.5 backdrop-blur-sm">
            <div className="flex-1 w-full bg-[#0a0a0a] rounded-[1.5rem] overflow-hidden flex flex-col items-center justify-center border border-white/5 p-8 text-center">
               <div className="w-12 h-12 rounded bg-white/5 border border-white/10 flex items-center justify-center mb-6 animate-pulse">
                  <div className="w-2 h-2 rounded-full bg-white/20"></div>
@@ -95,9 +97,10 @@ const SecondaryScreen: React.FC<SecondaryScreenProps> = ({ project, viewMode, ma
   }
 
   return (
-    <div className="relative w-full group flex flex-col items-center bg-transparent translate-y-2">
+    <div className="relative w-full h-full group flex flex-col items-center bg-transparent translate-y-2">
+       <div className="w-full h-[45px] flex-shrink-0" />
        {/* Screen Body - White Plastic */}
-       <div className="w-full h-[460px] bg-[#fcfcfc] rounded-[2rem] border-[6px] border-[#f0f0f0] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.2)] flex flex-col p-1.5 backdrop-blur-sm">
+       <div className="w-full flex-1 bg-[#fcfcfc] rounded-[2rem] border-[6px] border-[#f0f0f0] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.2)] flex flex-col p-1.5 backdrop-blur-sm">
           {/* Anti-Glare Overlay */}
           <div className="absolute inset-0 z-20 pointer-events-none bg-gradient-to-tr from-white/25 via-transparent to-transparent"></div>
           
@@ -119,7 +122,7 @@ const SecondaryScreen: React.FC<SecondaryScreenProps> = ({ project, viewMode, ma
                 </div>
              ) : (
                 <div className="flex-1 flex flex-col pt-6 px-6 pb-6 pointer-events-auto overflow-hidden">
-                    <div className="flex-1 w-full overflow-y-auto no-scrollbar pr-1 scroll-smooth">
+                    <div className="flex-1 w-full overflow-y-auto pr-1 scroll-smooth">
                        <div className="space-y-7">
                           {/* Common Section Render Style */}
                           
@@ -186,7 +189,7 @@ const SecondaryScreen: React.FC<SecondaryScreenProps> = ({ project, viewMode, ma
        {/* Stand - Simple Rectangular Design Mini */}
        <div className="relative flex flex-col items-center -mt-px z-0">
          {/* Stand Neck (Rectangle) */}
-         <div className="w-8 h-10 bg-gradient-to-b from-[#f0f0f0] to-[#e5e5e5] shadow-inner border-x border-black/[0.02]"></div>
+         <div className="w-8 h-12 bg-gradient-to-b from-[#f0f0f0] to-[#e5e5e5] shadow-inner border-x border-black/[0.02]"></div>
          {/* Stand Base (Rectangle) */}
          <div className="w-32 h-1.5 bg-[#f5f5f5] rounded-sm shadow-[0_4px_10px_rgba(0,0,0,0.15)] border-b border-black/5"></div>
          {/* Soft Ground Shadow */}

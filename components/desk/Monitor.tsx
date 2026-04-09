@@ -70,7 +70,7 @@ const Monitor: React.FC<MonitorProps> = ({
   };
 
   return (
-    <div className="relative w-full max-w-3xl mx-auto group">
+    <div className="relative w-full group">
       {/* Project Tab List - Horizontal Scrollable */}
       <div className="flex gap-2 mb-3 items-center w-full overflow-x-auto no-scrollbar scroll-smooth pt-2 pb-2">
         <div className="flex gap-2 items-center flex-nowrap px-1">
