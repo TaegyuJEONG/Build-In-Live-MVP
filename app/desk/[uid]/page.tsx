@@ -115,6 +115,8 @@ export default function UserDeskPage() {
   const [isDragging, setIsDragging] = useState(false);
   const isOwner = firebaseUser?.uid === uid;
   const lastMousePos = useRef({ x: 0, y: 0 });
+  const activePointers = useRef(new Map<number, { x: number, y: number }>());
+  const lastDistance = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -326,21 +328,37 @@ export default function UserDeskPage() {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const target = e.target as HTMLElement;
-    if (e.button === 0 && !target.closest("button, a, input, textarea, [role='button']")) {
+    if (activePointers.current.size === 1 && !target.closest("button, a, input, textarea, [role='button']")) {
       setIsDragging(true);
       lastMousePos.current = { x: e.clientX, y: e.clientY };
     }
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }, []);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isDragging) {
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (activePointers.current.size === 2) {
+      // Pinch zoom logic
+      const pointers = Array.from(activePointers.current.values());
+      const dist = Math.hypot(pointers[0].x - pointers[1].x, pointers[0].y - pointers[1].y);
+      
+      if (lastDistance.current !== null) {
+        const delta = dist - lastDistance.current;
+        const zoomFactor = delta * (scale * 0.01);
+        setScale(s => Math.min(Math.max(0.1, s + zoomFactor), 5));
+      }
+      lastDistance.current = dist;
+    } else if (activePointers.current.size === 1 && isDragging) {
       const dx = e.clientX - lastMousePos.current.x;
       const dy = e.clientY - lastMousePos.current.y;
       setPosition(prev => ({ x: prev.x + dx, y: prev.y + dy }));
       lastMousePos.current = { x: e.clientX, y: e.clientY };
     }
+    
     if (placingPolaroid && workspaceRef.current) {
        const rect = workspaceRef.current.getBoundingClientRect();
        const x = (e.clientX - rect.left - rect.width / 2) / scale;
@@ -349,7 +367,16 @@ export default function UserDeskPage() {
     }
   }, [isDragging, placingPolaroid, scale]);
 
-  const handleMouseUp = useCallback(() => setIsDragging(false), []);
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    activePointers.current.delete(e.pointerId);
+    if (activePointers.current.size < 2) {
+      lastDistance.current = null;
+    }
+    if (activePointers.current.size === 0) {
+      setIsDragging(false);
+    }
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+  }, []);
 
   const PolaroidIcon = () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -365,11 +392,12 @@ export default function UserDeskPage() {
   return (
     <div 
       ref={containerRef}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      className={cn("relative w-screen h-screen bg-[#050505] text-white overflow-hidden font-sans selection:bg-white/10", isDragging ? "cursor-grabbing" : "cursor-default")}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      className={cn("relative w-screen h-screen bg-[#050505] text-white overflow-hidden font-sans selection:bg-white/10 touch-none", isDragging ? "cursor-grabbing" : "cursor-default")}
     >
       {/* FIXED UI OVERLAYS */}
       <div className="absolute inset-0 z-[1000] pointer-events-none">
@@ -462,7 +490,7 @@ export default function UserDeskPage() {
       {/* PANNING & ZOOMING WORKSPACE */}
       <div 
         ref={workspaceRef}
-        onMouseDown={async (e) => {
+        onPointerDown={async (e) => {
            setSelectedId(null);
            if (placingPolaroid) {
               e.stopPropagation();
@@ -486,7 +514,7 @@ export default function UserDeskPage() {
                  }
               return;
            }
-           handleMouseDown(e);
+           // The container's onPointerDown handles the background drag/panning
         }}
         className="absolute inset-x-[-100%] inset-y-[-100%] flex items-center justify-center"
         style={{
@@ -504,8 +532,8 @@ export default function UserDeskPage() {
                    <Monitor projects={userProjects} selectedProjectId={selectedProjectId || ""} onSelectProject={setSelectedProjectId} viewMode={viewMode} mainTab={mainTab} profileViewMode={profileViewMode} onEditProject={handleEditProject} onViewModeChange={setViewMode} isOwner={isOwner} />
                 </div>
                 
-                {/* Slave: Secondary Screen fills the available height without expanding it */}
-                <div className="w-full lg:w-96 relative min-h-[460px] lg:min-h-0">
+                {/* Slave: Secondary Screen - Fixed width on mobile as requested */}
+                <div className="w-[320px] lg:w-96 relative min-h-[460px] lg:min-h-0 shrink-0">
                    <div className="lg:absolute lg:inset-0 flex flex-col">
                       <SecondaryScreen project={selectedProject} viewMode={viewMode} mainTab={mainTab} />
                    </div>

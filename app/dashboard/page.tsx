@@ -848,23 +848,52 @@ export default function BuildInLive() {
   
   const isDragging = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
+  const activePointers = useRef(new Map<number, { x: number, y: number }>());
+  const lastDistance = useRef<number | null>(null);
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    isDragging.current = true;
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointers.current.size === 1) {
+      isDragging.current = true;
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+    }
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging.current) return;
-    const dx = e.clientX - lastMousePos.current.x;
-    const dy = e.clientY - lastMousePos.current.y;
-    setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (activePointers.current.size === 2) {
+      // Pinch zoom logic
+      const pointers = Array.from(activePointers.current.values());
+      const dist = Math.hypot(pointers[0].x - pointers[1].x, pointers[0].y - pointers[1].y);
+      
+      if (lastDistance.current !== null) {
+        const delta = dist - lastDistance.current;
+        // Sensitivity factor for pinch zoom
+        const zoomFactor = delta * (zoom * 0.01);
+        setZoom(prev => Math.min(Math.max(0.2, prev + zoomFactor), 4));
+      }
+      lastDistance.current = dist;
+      
+      // Also allow panning while zooming with mid point calculation if needed, 
+      // but simple pinch zoom is often cleaner.
+    } else if (activePointers.current.size === 1 && isDragging.current) {
+      const dx = e.clientX - lastMousePos.current.x;
+      const dy = e.clientY - lastMousePos.current.y;
+      setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    isDragging.current = false;
+    activePointers.current.delete(e.pointerId);
+    if (activePointers.current.size < 2) {
+      lastDistance.current = null;
+    }
+    if (activePointers.current.size === 0) {
+      isDragging.current = false;
+    }
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
   };
 

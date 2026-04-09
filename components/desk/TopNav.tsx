@@ -21,7 +21,7 @@ const TopNav = ({ activeTab, onTabChange }: TopNavProps) => {
           <div key={tab.id} className="relative flex flex-col items-center">
             <button 
               onClick={() => onTabChange(tab.id)}
-              className={`pb-2 px-1 text-[11px] font-black tracking-[0.3em] transition-all duration-300 uppercase cursor-pointer ${
+              className={`pb-2 px-1 text-[9px] md:text-[11px] font-black tracking-[0.2em] md:tracking-[0.3em] transition-all duration-300 uppercase cursor-pointer ${
                 activeTab === tab.id 
                   ? "text-white" 
                   : "text-white/30 hover:text-white/60"
