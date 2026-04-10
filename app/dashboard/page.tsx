@@ -1,6 +1,6 @@
 "use client"
 
-import { Radio, Terminal, Cpu, Plus, Minus, Layers, SquarePlus, BarChart3, Settings, Focus, AlertTriangle, Trash2, PenSquare, Hand, X, Upload, Loader2, Image as ImageIcon } from "lucide-react"
+import { Radio, Terminal, Cpu, Plus, Minus, Layers, SquarePlus, BarChart3, Settings, Focus, AlertTriangle, Trash2, PenSquare, Hand, X, Upload, Loader2, Image as ImageIcon, LogIn, UserPlus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/BottomNav"
 import React, { useEffect, useState, useRef, useMemo } from "react"
@@ -676,7 +676,7 @@ function HeartFloat({ isHeartActive, delay = 0, duration = 10 }: { isHeartActive
 export default function BuildInLive() {
   const [mounted, setMounted] = React.useState(false)
   const router = useRouter();
-  const { init, setProject, projects, users, firebaseUser } = useStore();
+  const { init, setProject, projects, users, firebaseUser, showAuthModal, setShowAuthModal } = useStore();
 
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -1007,7 +1007,13 @@ export default function BuildInLive() {
         <div className="flex gap-2 relative">
           <button 
             className="hover:bg-white/5 p-2 transition-colors"
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => {
+              if (!firebaseUser) {
+                setShowAuthModal(true);
+                return;
+              }
+              setIsAddModalOpen(true);
+            }}
           >
             <SquarePlus className="w-[18px] h-[18px] text-white/40" />
           </button>
@@ -1031,39 +1037,66 @@ export default function BuildInLive() {
                 onMouseLeave={() => setIsSettingsOpen(false)}
               >
                 <div className="p-1">
-                  <div className="px-4 py-3 border-b border-white/5 mb-1 bg-white/[0.02]">
-                    <div className="text-[7px] tracking-[0.4em] text-white/20 uppercase mb-2 font-bold">USER_IDENTITY</div>
-                    <div className="text-[11px] font-black text-white tracking-tight leading-none mb-1 uppercase">
-                      {userName || "..."}
-                    </div>
-                    <div className="text-[9px] tracking-wider text-white/40 lowercase truncate" title={firebaseUser?.email || ''}>
-                      {firebaseUser?.email}
-                    </div>
-                  </div>
+                  {firebaseUser ? (
+                    <>
+                      <div className="px-4 py-3 border-b border-white/5 mb-1 bg-white/[0.02]">
+                        <div className="text-[7px] tracking-[0.4em] text-white/20 uppercase mb-2 font-bold">USER_IDENTITY</div>
+                        <div className="text-[11px] font-black text-white tracking-tight leading-none mb-1 uppercase">
+                          {userName || "..."}
+                        </div>
+                        <div className="text-[9px] tracking-wider text-white/40 lowercase truncate" title={firebaseUser?.email || ''}>
+                          {firebaseUser?.email}
+                        </div>
+                      </div>
 
-                  <button 
-                    onClick={async () => {
-                      const { auth } = await import("@/lib/firebase");
-                      if (auth) {
-                        await auth.signOut();
-                        router.push("/auth");
-                      }
-                    }}
-                    className="w-full text-left px-4 py-3 text-[10px] tracking-widest text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase flex items-center gap-3"
-                  >
-                    <div className="w-1 h-1 bg-white/20 rounded-full" />
-                    Logout
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setShowDeleteConfirm(true);
-                      setIsSettingsOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-[10px] tracking-widest text-[#F95A56]/60 hover:text-[#F95A56] hover:bg-[#F95A56]/5 transition-colors uppercase flex items-center gap-3"
-                  >
-                    <div className="w-1 h-1 bg-[#F95A56]/20 rounded-full" />
-                    Delete Account
-                  </button>
+                      <button 
+                        onClick={async () => {
+                          const { auth } = await import("@/lib/firebase");
+                          if (auth) {
+                            await auth.signOut();
+                            router.push("/auth");
+                          }
+                        }}
+                        className="w-full text-left px-4 py-3 text-[10px] tracking-widest text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase flex items-center gap-3"
+                      >
+                        <div className="w-1 h-1 bg-white/20 rounded-full" />
+                        Logout
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setShowDeleteConfirm(true);
+                          setIsSettingsOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-3 text-[10px] tracking-widest text-[#F95A56]/60 hover:text-[#F95A56] hover:bg-[#F95A56]/5 transition-colors uppercase flex items-center gap-3"
+                      >
+                        <div className="w-1 h-1 bg-[#F95A56]/20 rounded-full" />
+                        Delete Account
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="px-4 py-3 border-b border-white/5 mb-1 bg-white/[0.02]">
+                        <div className="text-[7px] tracking-[0.4em] text-white/20 uppercase mb-2 font-bold">GUEST_MODE</div>
+                        <div className="text-[11px] font-black text-white tracking-tight leading-none mb-1 uppercase">
+                          Limited Access
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => router.push("/auth?mode=signin")}
+                        className="w-full text-left px-4 py-3 text-[10px] tracking-widest text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase flex items-center gap-3"
+                      >
+                        <LogIn className="w-3 h-3" />
+                        Sign In
+                      </button>
+                      <button 
+                        onClick={() => router.push("/auth?mode=signup")}
+                        className="w-full text-left px-4 py-3 text-[10px] tracking-widest text-white hover:bg-white/10 transition-colors uppercase flex items-center gap-3 font-bold"
+                      >
+                        <UserPlus className="w-3 h-3" />
+                        Sign Up Free
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}

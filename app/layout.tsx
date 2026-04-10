@@ -16,6 +16,7 @@ export const metadata: Metadata = {
 }
 
 import AuthGuard from '@/components/AuthGuard'
+import { AuthPromptModal } from '@/components/AuthPromptModal'
 
 export default function RootLayout({
   children,
@@ -28,6 +29,7 @@ export default function RootLayout({
         <AuthGuard>
           {children}
         </AuthGuard>
+        <AuthPromptModal />
         <Analytics />
       </body>
     </html>

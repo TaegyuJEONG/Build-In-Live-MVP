@@ -11,7 +11,7 @@ export function BottomNav() {
   const isProjectView = pathname.startsWith("/project/");
   const isStudioView = pathname === "/";
   const projectId = isProjectView ? pathname.split("/")[2] : null;
-  const { firebaseUser } = useStore();
+  const { firebaseUser, setShowAuthModal } = useStore();
   const [visitedDesk, setVisitedDesk] = useState<{ id: string, ownerId: string, ownerName: string } | null>(null);
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function BottomNav() {
 
   const studioName = projectId === 'portfolio' ? 'JTG' : (projectId?.charAt(0).toUpperCase()! + projectId?.slice(1));
 
-  const myDeskHref = firebaseUser ? `/desk/${firebaseUser.uid}` : "/auth";
+  const myDeskHref = firebaseUser ? `/desk/${firebaseUser.uid}` : "#";
   const isMyDeskActive = firebaseUser && pathname === `/desk/${firebaseUser.uid}`;
 
   return (
@@ -49,6 +49,12 @@ export function BottomNav() {
       {/* My Desk - Active for the showcase drawer */}
       <Link 
         href={myDeskHref}
+        onClick={(e) => {
+          if (!firebaseUser) {
+            e.preventDefault();
+            setShowAuthModal(true);
+          }
+        }}
         className={`px-4 md:px-8 py-3 md:py-4 flex items-center gap-2 md:gap-3 transition-all duration-300 ${isMyDeskActive ? 'bg-white/10 text-white font-black' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
       >
         <span className="text-[8px] md:text-[10px] tracking-[0.2em] uppercase text-nowrap">My Desk</span>

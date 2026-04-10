@@ -8,7 +8,7 @@ import SecondaryScreen from "@/components/desk/SecondaryScreen";
 import Keyboard from "@/components/desk/Keyboard";
 import { BottomNav } from "@/components/BottomNav";
 import { cn } from "@/lib/utils";
-import { Plus, Minus, Focus, X, Upload, Loader2, Image as ImageIcon, Trash2, Youtube, Link as LinkIcon, Camera, MousePointer2, RotateCw, Maximize2, Link2, ExternalLink, StickyNote } from "lucide-react";
+import { Plus, Minus, Focus, X, Upload, Loader2, Image as ImageIcon, Trash2, Youtube, Link as LinkIcon, Camera, MousePointer2, RotateCw, Maximize2, Link2, ExternalLink, StickyNote, Settings, LogIn, UserPlus } from "lucide-react";
 import { SnapshotOverlay } from "@/components/SnapshotOverlay";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useStore, Project as StoreProject, Polaroid } from "@/lib/store";
@@ -81,7 +81,7 @@ export default function UserDeskPage() {
   const searchParams = useSearchParams();
   const uid = params.uid as string;
   const router = useRouter();
-  const { projects, init, firebaseUser, currentUser, isLoading, addProject, updateProject, deleteProject: storeDeleteProject } = useStore();
+  const { projects, init, firebaseUser, currentUser, isLoading, addProject, updateProject, deleteProject: storeDeleteProject, showAuthModal, setShowAuthModal } = useStore();
   
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"screenshots" | "live" | "demo">("screenshots");
@@ -113,6 +113,7 @@ export default function UserDeskPage() {
   const [scale, setScale] = useState(0.7);
   const [position, setPosition] = useState({ x: -6, y: -29 });
   const [isDragging, setIsDragging] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const isOwner = firebaseUser?.uid === uid;
   const lastMousePos = useRef({ x: 0, y: 0 });
   const activePointers = useRef(new Map<number, { x: number, y: number }>());
@@ -401,13 +402,93 @@ export default function UserDeskPage() {
     >
       {/* FIXED UI OVERLAYS */}
       <div className="absolute inset-0 z-[1000] pointer-events-none">
-         <div className="absolute top-0 inset-x-0 p-4 pointer-events-auto">
+         <div className="absolute top-0 inset-x-0 p-4 md:p-8 pointer-events-auto flex justify-between items-start">
+            <div className="flex flex-col">
+               <div className="text-[10px] font-black tracking-[0.4em] text-white/40 uppercase mb-1">BUILD_IN_LIVE</div>
+               <div className="text-[14px] font-bold text-white uppercase tracking-tighter">
+                  {isOwner ? "My_Desk" : `${userProjects[0]?.name || 'User'}_Desk`}
+               </div>
+            </div>
+
             <TopNav activeTab={mainTab} onTabChange={setMainTab} />
+
+            <div className="flex items-center gap-4">
+               <div className="relative">
+                  <button 
+                    onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                    className={cn(
+                      "w-10 h-10 flex items-center justify-center border transition-all",
+                      isSettingsOpen ? "bg-white text-black border-white" : "bg-white/5 hover:bg-white/10 border-white/10 text-white/60"
+                    )}
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
+                  
+                  {isSettingsOpen && (
+                    <div 
+                      className="absolute right-0 mt-2 w-56 bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-200"
+                      onMouseLeave={() => setIsSettingsOpen(false)}
+                    >
+                      <div className="p-1">
+                        {firebaseUser ? (
+                          <>
+                            <div className="px-4 py-3 border-b border-white/5 mb-1 bg-white/[0.02]">
+                              <div className="text-[7px] tracking-[0.4em] text-white/20 uppercase mb-2 font-bold">USER_IDENTITY</div>
+                              <div className="text-[11px] font-black text-white tracking-tight leading-none mb-1 uppercase">
+                                {currentUser?.name || firebaseUser.displayName || "..."}
+                              </div>
+                              <div className="text-[9px] tracking-wider text-white/40 lowercase truncate">
+                                {firebaseUser.email}
+                              </div>
+                            </div>
+                            <button 
+                              onClick={async () => {
+                                const { auth } = await import("@/lib/firebase");
+                                if (auth) {
+                                  await auth.signOut();
+                                  router.push("/auth");
+                                }
+                              }}
+                              className="w-full text-left px-4 py-3 text-[10px] tracking-widest text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase flex items-center gap-3"
+                            >
+                              <div className="w-1 h-1 bg-white/20 rounded-full" />
+                              Logout
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <div className="px-4 py-3 border-b border-white/5 mb-1 bg-white/[0.02]">
+                              <div className="text-[7px] tracking-[0.4em] text-white/20 uppercase mb-2 font-bold">GUEST_MODE</div>
+                              <div className="text-[11px] font-black text-white tracking-tight leading-none mb-1 uppercase">
+                                Limited Access
+                              </div>
+                            </div>
+                            <button 
+                              onClick={() => router.push("/auth?mode=signin")}
+                              className="w-full text-left px-4 py-3 text-[10px] tracking-widest text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase flex items-center gap-3"
+                            >
+                              <LogIn className="w-3 h-3" />
+                              Sign In
+                            </button>
+                            <button 
+                              onClick={() => router.push("/auth?mode=signup")}
+                              className="w-full text-left px-4 py-3 text-[10px] tracking-widest text-white hover:bg-white/10 transition-colors uppercase flex items-center gap-3 font-bold"
+                            >
+                              <UserPlus className="w-3 h-3" />
+                              Sign Up Free
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+               </div>
+            </div>
          </div>
          <div className="absolute bottom-10 inset-x-0 flex justify-center pointer-events-auto">
             <BottomNav />
          </div>
-          <aside className="absolute hidden md:flex left-4 md:left-12 top-1/2 -translate-y-1/2 flex-col gap-0 p-0 pointer-events-auto select-none scale-90 md:scale-100 origin-left">
+         <aside className="absolute hidden md:flex left-4 md:left-12 top-1/2 -translate-y-1/2 flex-col gap-0 p-0 pointer-events-auto select-none scale-90 md:scale-100 origin-left">
             <div className="px-2 py-4 mb-4 border-l-2 border-white/20">
                <div className="text-[9px] font-black tracking-[0.3em] uppercase text-white/30 mb-1">COORDINATES</div>
                <div className="text-[11px] font-mono text-white">{`${Math.round(-position.x)}.${Math.round(-position.y)}.${scale.toFixed(2)}_INF`}</div>
@@ -466,15 +547,21 @@ export default function UserDeskPage() {
             {mainTab === "ROLLING_PAPER" && (
               <div className="flex flex-col gap-3 mt-6">
                 <button 
-                  onClick={() => setPlacingPolaroid({ 
-                    type: 'POSTIT',
-                    scope: 'ROLLING_PAPER',
-                    x: 0, y: 0, 
-                    text: "", 
-                    rotation: Math.random()*10-5, 
-                    scale: 1.0, 
-                    date: new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit'}).toUpperCase() 
-                  })}
+                  onClick={() => {
+                    if (!firebaseUser) {
+                      setShowAuthModal(true);
+                      return;
+                    }
+                    setPlacingPolaroid({ 
+                      type: 'POSTIT',
+                      scope: 'ROLLING_PAPER',
+                      x: 0, y: 0, 
+                      text: "", 
+                      rotation: Math.random()*10-5, 
+                      scale: 1.0, 
+                      date: new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit'}).toUpperCase() 
+                    });
+                  }}
                   className={cn(
                     "w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 border backdrop-blur-xl",
                     placingPolaroid?.type === 'POSTIT'
@@ -557,9 +644,15 @@ export default function UserDeskPage() {
                     const idx = userProjects.findIndex(p => p.id === selectedProjectId);
                     setSelectedProjectId(userProjects[(idx + 1) % userProjects.length]?.id);
                   }}
-                  onAddProject={() => setIsAddModalOpen(true)}
-                  isVerified={selectedProject?.isVerified}
-                  isOwner={isOwner}
+                   onAddProject={() => {
+                     if (!firebaseUser) {
+                       setShowAuthModal(true);
+                       return;
+                     }
+                     setIsAddModalOpen(true);
+                   }}
+                   isVerified={selectedProject?.isVerified}
+                   isOwner={isOwner}
                 />
              </div>
           </main>

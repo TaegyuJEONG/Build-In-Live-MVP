@@ -31,6 +31,7 @@ export default function OnboardingPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [screenshotFiles, setScreenshotFiles] = useState<File[]>([])
   const [screenshotPreviews, setScreenshotPreviews] = useState<string[]>([])
+  const [initialCheckDone, setInitialCheckDone] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -43,7 +44,7 @@ export default function OnboardingPage() {
   }, [projectIdParam]);
 
   useEffect(() => {
-    if (firebaseUser && db) {
+    if (firebaseUser && db && !initialCheckDone) {
       const checkUser = async () => {
         try {
           const userRef = doc(db!, "users", firebaseUser.uid);
@@ -66,14 +67,16 @@ export default function OnboardingPage() {
           console.error("Error checking user identity:", e);
         } finally {
           setCheckingAuth(false);
+          setInitialCheckDone(true);
         }
       };
       checkUser();
     } else if (firebaseUser === null) {
       // If we know there's no user, stop checking (AuthGuard will handle the redirect)
       setCheckingAuth(false);
+      setInitialCheckDone(true);
     }
-  }, [firebaseUser, step, pathname, projectIdParam, router]);
+  }, [firebaseUser, initialCheckDone, pathname, projectIdParam, router]);
 
   // Load existing project if provided
   useEffect(() => {

@@ -98,6 +98,8 @@ interface AppState {
   polaroids: Polaroid[];
   currentProject: string;
   isLoading: boolean;
+  showAuthModal: boolean;
+  setShowAuthModal: (show: boolean) => void;
   
   setFirebaseUser: (user: FirebaseUser | null) => void;
   setProject: (projectId: string) => void;
@@ -131,6 +133,8 @@ export const useStore = create<AppState>((set, get) => ({
   polaroids: [],
   currentProject: 'home',
   isLoading: true,
+  showAuthModal: false,
+  setShowAuthModal: (show) => set({ showAuthModal: show }),
 
   setFirebaseUser: (user) => {
     if (!auth || !rtdb) return;

@@ -37,7 +37,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     if (!isLoading) {
-      if (!firebaseUser && !pathname.startsWith('/auth') && !pathname.startsWith('/feedback')) {
+      if (!firebaseUser && !pathname.startsWith('/auth') && !pathname.startsWith('/feedback') && !pathname.startsWith('/desk') && pathname !== '/dashboard' && pathname !== '/') {
         router.push('/auth')
       } else if (firebaseUser && pathname === '/auth') {
         router.push('/')
