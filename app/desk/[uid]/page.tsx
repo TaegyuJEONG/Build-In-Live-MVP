@@ -782,12 +782,19 @@ export default function UserDeskPage() {
 
                             <textarea 
                                readOnly={!isOwner}
-                               maxLength={50} rows={1} placeholder="Video Title..."
+                               maxLength={50} placeholder="Video Title..."
                                className={cn(
-                                 "w-full bg-transparent border-none outline-none resize-none font-black text-black leading-none text-[18px] uppercase tracking-tighter placeholder:text-black/5 selection:bg-black/10 px-1 overflow-hidden mt-1",
+                                 "w-full bg-transparent border-none outline-none resize-none font-black text-black leading-none text-[18px] uppercase tracking-tighter placeholder:text-black/5 selection:bg-black/10 px-1 mt-1",
                                  isOwner ? "cursor-text select-text" : "cursor-default select-none"
                                )}
+                               style={{ height: 'auto' }}
                                value={textDrafts[p.id] !== undefined ? textDrafts[p.id] : p.text}
+                               ref={(el) => {
+                                 if (el) {
+                                   el.style.height = 'auto';
+                                   el.style.height = el.scrollHeight + 'px';
+                                 }
+                               }}
                                onMouseDown={(e) => e.stopPropagation()} onMouseMove={(e) => e.stopPropagation()}
                                onFocus={() => isOwner && setFocusedId(p.id)}
                                onInput={(e) => { const t = e.target as any; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
@@ -856,10 +863,16 @@ export default function UserDeskPage() {
                                 maxLength={250}
                                 placeholder="Write a message..."
                                 className={cn(
-                                  "w-full bg-transparent border-none outline-none resize-none font-medium text-black/80 leading-relaxed text-[16px] placeholder:text-black/10 selection:bg-black/10 overflow-hidden",
+                                  "w-full bg-transparent border-none outline-none resize-none font-medium text-black/80 leading-relaxed text-[16px] placeholder:text-black/10 selection:bg-black/10",
                                   (isOwner || p.authorId === firebaseUser?.uid) ? "cursor-text select-text" : "cursor-default select-none"
                                 )}
-                                style={{ height: 'auto', minHeight: '100px' }}
+                                style={{ height: 'auto' }}
+                                ref={(el) => {
+                                  if (el) {
+                                    el.style.height = 'auto';
+                                    el.style.height = el.scrollHeight + 'px';
+                                  }
+                                }}
                                 value={textDrafts[p.id] !== undefined ? textDrafts[p.id] : p.text}
                                 onChange={(e) => {
                                   if (isOwner || p.authorId === firebaseUser?.uid) {
@@ -938,11 +951,18 @@ export default function UserDeskPage() {
                             </div>
                             <textarea 
                                readOnly={!isOwner}
-                               maxLength={150} rows={1} placeholder="Write something..."
+                               maxLength={150} placeholder="Write something..."
                                className={cn(
-                                 "w-full bg-transparent border-none outline-none resize-none font-serif italic text-black leading-tight text-[11px] placeholder:text-black/5 selection:bg-[#F95A56]/20 px-1 overflow-hidden",
+                                 "w-full bg-transparent border-none outline-none resize-none font-serif italic text-black leading-tight text-[11px] placeholder:text-black/5 selection:bg-[#F95A56]/20 px-1",
                                  isOwner ? "cursor-text select-text" : "cursor-default select-none"
                                )}
+                               style={{ height: 'auto' }}
+                               ref={(el) => {
+                                 if (el) {
+                                   el.style.height = 'auto';
+                                   el.style.height = el.scrollHeight + 'px';
+                                 }
+                               }}
                                value={textDrafts[p.id] !== undefined ? textDrafts[p.id] : p.text}
                                onMouseDown={(e) => e.stopPropagation()} onMouseMove={(e) => e.stopPropagation()}
                                onFocus={() => isOwner && setFocusedId(p.id)}
