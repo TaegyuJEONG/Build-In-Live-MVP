@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { extractMetadataFromReadme } from '@/lib/ai/metadataExtractor';
 // Assuming you have initialized firebase-admin in your project elsewhere, e.g. in lib/firebaseAdmin.ts
-// import { adminDb } from '@/lib/firebaseAdmin';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 export async function POST(req: Request) {
   try {
@@ -11,7 +11,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const token = authHeader.split(' ')[1];
-    // TODO: Verify token against database
+    
+    // TODO: Actually verify the token from device_sessions
+    // For now, we trust the flow, but in production, we should lookup the userId.
 
     // 2. Parse Request Payload
     const body = await req.json();
@@ -40,17 +42,16 @@ export async function POST(req: Request) {
 
     const payloadToSave = {
       ...processedData,
-      createdAt: new Date().toISOString(), // or Firestore Timestamp
+      createdAt: new Date().toISOString(),
       isVerified: false,
       feedbackCount: 0,
-      platforms: processedData.platforms || ['web'],
     };
 
-    // 3. Save to Firestore (Mocked for now since admin snippet varies heavily via project config)
-    // await adminDb.collection('projects').add(payloadToSave);
-    console.log('[API] Synced project data to Firestore:', payloadToSave);
+    // 3. Save to Firestore (REAL)
+    const docRef = await adminDb.collection('projects').add(payloadToSave);
+    console.log('[API] Saved project to Firestore with ID:', docRef.id);
 
-    return NextResponse.json({ success: true, data: payloadToSave });
+    return NextResponse.json({ success: true, data: { ...payloadToSave, id: docRef.id } });
 
   } catch (error) {
     console.error('Project sync error:', error);

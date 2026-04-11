@@ -39,55 +39,74 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.loginWithDeviceFlow = loginWithDeviceFlow;
 const picocolors_1 = __importDefault(require("picocolors"));
 const config_1 = require("../utils/config");
-// Dynamically import `open` as it is an ESM module
+const API_BASE = 'https://build-in-live-mvp.vercel.app';
 const openBrowser = async (url) => {
     const { default: open } = await Promise.resolve().then(() => __importStar(require('open')));
     await open(url);
 };
 async function loginWithDeviceFlow() {
     console.log(picocolors_1.default.gray('Requesting device authorization code...'));
-    // In a real implementation:
-    // const res = await fetch(`${API_BASE}/oauth/device/code`, { method: 'POST' });
-    // const data = await res.json();
-    // We'll mock the response:
-    const mockCodeResponse = {
-        device_code: 'mock_device_code_12345',
-        user_code: 'FD34-9A8B',
-        verification_uri: 'https://buildinlive.com/activate',
-        expires_in: 900,
-        interval: 3 // We use 3 seconds for faster demonstration
-    };
+    // 1. Get a real device code from our server
+    const codeRes = await fetch(`${API_BASE}/api/auth/device/code`, { method: 'POST' });
+    if (!codeRes.ok) {
+        throw new Error('Failed to request device authorization code. Is the server reachable?');
+    }
+    const codeData = await codeRes.json();
+    const { device_code, user_code, verification_uri_complete, interval } = codeData;
     console.log('\n' + picocolors_1.default.bold(picocolors_1.default.green('🔗 Please visit the following URL to authorize this device:')));
-    console.log(picocolors_1.default.cyan(mockCodeResponse.verification_uri));
-    console.log('\nAnd enter the code: ' + picocolors_1.default.bold(picocolors_1.default.bgYellow(picocolors_1.default.black(` ${mockCodeResponse.user_code} `))) + '\n');
-    // Attempt to open the browser automatically
+    console.log(picocolors_1.default.cyan(verification_uri_complete));
+    console.log('\nAnd enter the code: ' + picocolors_1.default.bold(picocolors_1.default.bgYellow(picocolors_1.default.black(` ${user_code} `))) + '\n');
+    console.log(picocolors_1.default.gray('(The code is pre-filled in the URL above — just hit Authorize!)'));
+    // Open browser automatically
     try {
-        await openBrowser(mockCodeResponse.verification_uri);
+        await openBrowser(verification_uri_complete);
         console.log(picocolors_1.default.gray('(Your browser should have opened automatically)'));
     }
     catch (e) {
-        // ignore
+        // ignore if browser can't open
     }
-    // Poll until authorized.
+    // 2. Poll server until approved or expired
     console.log(picocolors_1.default.cyan('⏳ Waiting for authorization...'));
-    // Mock polling logic that succeeds after a few seconds to simulate user action
-    const token = await mockPolling(mockCodeResponse.interval);
-    // Save token locally
+    const token = await pollForToken(device_code, interval || 5);
+    // 3. Save token locally
     await (0, config_1.writeConfig)({ accessToken: token });
     console.log(picocolors_1.default.green('\n✅ Successfully logged in!'));
     return token;
 }
-// Mock function replacing the actual setInterval/fetch loop
-function mockPolling(intervalSeconds) {
-    return new Promise((resolve) => {
+function pollForToken(deviceCode, intervalSeconds) {
+    return new Promise((resolve, reject) => {
+        const maxAttempts = Math.floor(900 / intervalSeconds); // 15 minutes
         let attempts = 0;
-        const interval = setInterval(() => {
+        const interval = setInterval(async () => {
             attempts++;
-            process.stdout.write(picocolors_1.default.gray('.')); // Print dots to show it's polling
-            // Simulate user approving after 2 polling attempts
-            if (attempts >= 2) {
+            process.stdout.write(picocolors_1.default.gray('.'));
+            if (attempts > maxAttempts) {
                 clearInterval(interval);
-                resolve('mock_access_token_abc123');
+                reject(new Error('Authorization timed out. Please run `build-in-live-cli init` again.'));
+                return;
+            }
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/device/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_code: deviceCode }),
+                });
+                if (res.status === 202)
+                    return; // Still pending, keep polling
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'approved' && data.access_token) {
+                        clearInterval(interval);
+                        resolve(data.access_token);
+                    }
+                }
+                else if (res.status === 410) {
+                    clearInterval(interval);
+                    reject(new Error('Code expired. Please run `build-in-live-cli init` again.'));
+                }
+            }
+            catch (err) {
+                // Network error — keep trying
             }
         }, intervalSeconds * 1000);
     });

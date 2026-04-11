@@ -1,6 +1,6 @@
 {
   "name": "build-in-live-cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Build-In-Live CLI tool for automated project metadata extraction and SDK injection",
   "main": "dist/index.js",
   "bin": {
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "commander": "^11.1.0",
+    "firebase-admin": "^13.8.0",
     "open": "^11.0.0",
     "picocolors": "^1.0.0",
     "prompts": "^2.4.2",
