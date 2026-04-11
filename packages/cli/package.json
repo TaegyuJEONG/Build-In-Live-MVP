@@ -1,0 +1,27 @@
+{
+  "name": "@build-in-live/cli",
+  "version": "0.1.0",
+  "description": "Build-In-Live CLI tool for automated project metadata extraction and SDK injection",
+  "main": "dist/index.js",
+  "bin": {
+    "build-in-public": "./dist/index.js",
+    "bil": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node ./dist/index.js"
+  },
+  "dependencies": {
+    "commander": "^11.1.0",
+    "open": "^11.0.0",
+    "picocolors": "^1.0.0",
+    "prompts": "^2.4.2",
+    "ts-morph": "^21.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/prompts": "^2.4.9",
+    "typescript": "^5.0.0"
+  }
+}

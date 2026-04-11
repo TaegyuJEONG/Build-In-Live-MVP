@@ -17,6 +17,7 @@ export const metadata: Metadata = {
 
 import AuthGuard from '@/components/AuthGuard'
 import { AuthPromptModal } from '@/components/AuthPromptModal'
+import { LiveFeedbackSDK } from "@build-in-live/sdk";
 
 export default function RootLayout({
   children,
@@ -26,12 +27,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="font-mono antialiased bg-[#0a0a0a]">
-        <AuthGuard>
-          {children}
-        </AuthGuard>
-        <AuthPromptModal />
-        <Analytics />
-      </body>
+                  <LiveFeedbackSDK />
+                  <AuthGuard>
+                    {children}
+                  </AuthGuard>
+                  <AuthPromptModal />
+                  <Analytics />
+                </body>
     </html>
   )
 }
