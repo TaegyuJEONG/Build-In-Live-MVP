@@ -10,35 +10,46 @@ const promises_1 = __importDefault(require("fs/promises"));
 const picocolors_1 = __importDefault(require("picocolors"));
 const SDK_PACKAGE_NAME = '@build-in-live/sdk';
 const SDK_COMPONENT_NAME = 'LiveFeedbackSDK';
-async function injectSDK(cwd) {
-    // 1. Determine if using app or src/app
-    const possiblePaths = [
-        path_1.default.join(cwd, 'app', 'layout.tsx'),
-        path_1.default.join(cwd, 'src', 'app', 'layout.tsx')
-    ];
-    let targetLayoutPath = '';
-    for (const p of possiblePaths) {
-        try {
-            await promises_1.default.access(p);
-            targetLayoutPath = p;
-            break;
-        }
-        catch {
-            // ignore
+async function injectSDK(cwd, framework) {
+    let targetPath = '';
+    if (framework === 'nextjs') {
+        const possiblePaths = [
+            path_1.default.join(cwd, 'app', 'layout.tsx'),
+            path_1.default.join(cwd, 'src', 'app', 'layout.tsx')
+        ];
+        for (const p of possiblePaths) {
+            try {
+                await promises_1.default.access(p);
+                targetPath = p;
+                break;
+            }
+            catch { /* ignore */ }
         }
     }
-    if (!targetLayoutPath) {
-        console.log(picocolors_1.default.yellow(`⚠️ Could not find layout.tsx in standard Next.js App Router locations.`));
+    else if (framework === 'vitereact') {
+        const possiblePaths = [
+            path_1.default.join(cwd, 'src', 'main.tsx'),
+            path_1.default.join(cwd, 'src', 'main.jsx')
+        ];
+        for (const p of possiblePaths) {
+            try {
+                await promises_1.default.access(p);
+                targetPath = p;
+                break;
+            }
+            catch { /* ignore */ }
+        }
+    }
+    if (!targetPath) {
+        console.log(picocolors_1.default.yellow(`⚠️ Could not find standard entry file to inject SDK.`));
         return false;
     }
-    console.log(picocolors_1.default.gray(`Found layout.tsx at: ${targetLayoutPath}`));
-    // 2. Install the mock dependency (Simulated)
+    console.log(picocolors_1.default.gray(`Found entry file at: ${targetPath}`));
     console.log(picocolors_1.default.gray(`Mocking SDK installation: npm install ${SDK_PACKAGE_NAME}`));
     // In real life: execSync(`npm install ${SDK_PACKAGE_NAME}`, { stdio: 'inherit', cwd });
-    // 3. Setup ts-morph project
     const project = new ts_morph_1.Project();
-    const sourceFile = project.addSourceFileAtPath(targetLayoutPath);
-    // 4. Inject Import Declaration if not exists
+    const sourceFile = project.addSourceFileAtPath(targetPath);
+    // Inject Import Declaration if not exists
     const hasImport = sourceFile.getImportDeclarations().some(imp => {
         return imp.getModuleSpecifierValue() === SDK_PACKAGE_NAME;
     });
@@ -52,36 +63,62 @@ async function injectSDK(cwd) {
     else {
         console.log(picocolors_1.default.gray(`import statement for ${SDK_COMPONENT_NAME} already exists.`));
     }
-    // 5. Inject Component into layout body
     let bodyInjected = false;
-    // We need to look for JSX Elements that have a <body> tag.
-    sourceFile.forEachDescendant(node => {
-        if (node.getKind() === ts_morph_1.SyntaxKind.JsxElement) {
-            const jsxElement = node.asKind(ts_morph_1.SyntaxKind.JsxElement);
-            const openingElement = jsxElement?.getOpeningElement();
-            if (openingElement?.getTagNameNode().getText() === 'body') {
-                // Check if our SDK is already injected
-                const textArea = jsxElement.getText();
-                if (textArea.includes(SDK_COMPONENT_NAME)) {
+    if (framework === 'nextjs') {
+        sourceFile.forEachDescendant(node => {
+            if (node.getKind() === ts_morph_1.SyntaxKind.JsxElement) {
+                const jsxElement = node.asKind(ts_morph_1.SyntaxKind.JsxElement);
+                const openingElement = jsxElement?.getOpeningElement();
+                if (openingElement?.getTagNameNode().getText() === 'body') {
+                    const textArea = jsxElement.getText();
+                    if (textArea.includes(SDK_COMPONENT_NAME)) {
+                        bodyInjected = true;
+                        console.log(picocolors_1.default.gray(`<${SDK_COMPONENT_NAME} /> is already injected in <body>.`));
+                        return;
+                    }
+                    const originalBodyText = jsxElement.getText();
+                    const updatedBodyText = originalBodyText.replace(/(<body[^>]*>)/i, `$1\n        <${SDK_COMPONENT_NAME} />`);
+                    jsxElement.replaceWithText(updatedBodyText);
                     bodyInjected = true;
-                    console.log(picocolors_1.default.gray(`<${SDK_COMPONENT_NAME} /> is already injected in <body>.`));
-                    return;
+                    console.log(picocolors_1.default.green(`✔ Injected <${SDK_COMPONENT_NAME} /> inside <body> tag.`));
                 }
-                // String replacement approach for safely adding child without messing up ts-morph JsxChild indexing
-                const originalBodyText = jsxElement.getText();
-                // regex finds `<body ...>` and inserts `<LiveFeedbackSDK />` right after it
-                const updatedBodyText = originalBodyText.replace(/(<body[^>]*>)/i, `$1\n        <${SDK_COMPONENT_NAME} />`);
-                jsxElement.replaceWithText(updatedBodyText);
-                bodyInjected = true;
-                console.log(picocolors_1.default.green(`✔ Injected <${SDK_COMPONENT_NAME} /> inside <body> tag.`));
             }
-        }
-    });
-    if (!bodyInjected) {
-        console.log(picocolors_1.default.yellow(`⚠️ Could not automatically find <body> tag to inject the SDK. Please add it manually.`));
+        });
     }
-    // 6. Save modifications
-    await sourceFile.save();
-    console.log(picocolors_1.default.green(`✅ Layout file updated successfully!`));
+    else if (framework === 'vitereact') {
+        const codeText = sourceFile.getFullText();
+        if (codeText.includes(`<${SDK_COMPONENT_NAME} />`)) {
+            bodyInjected = true;
+            console.log(picocolors_1.default.gray(`<${SDK_COMPONENT_NAME} /> is already injected.`));
+        }
+        else {
+            sourceFile.forEachDescendant(node => {
+                if (node.getKind() === ts_morph_1.SyntaxKind.CallExpression) {
+                    const callExpr = node.asKind(ts_morph_1.SyntaxKind.CallExpression);
+                    const callText = callExpr?.getExpression().getText();
+                    if (callText && callText.endsWith('.render')) {
+                        const args = callExpr?.getArguments();
+                        if (args && args.length > 0) {
+                            const rootJsx = args[0];
+                            if (rootJsx.getKind() === ts_morph_1.SyntaxKind.JsxElement || rootJsx.getKind() === ts_morph_1.SyntaxKind.JsxSelfClosingElement || rootJsx.getKind() === ts_morph_1.SyntaxKind.JsxFragment) {
+                                const originalJsxText = rootJsx.getText();
+                                const newJsxText = `<>\n    <${SDK_COMPONENT_NAME} />\n    ${originalJsxText}\n  </>`;
+                                rootJsx.replaceWithText(newJsxText);
+                                bodyInjected = true;
+                                console.log(picocolors_1.default.green(`✔ Injected <${SDK_COMPONENT_NAME} /> into ReactDOM.render tree.`));
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+    if (!bodyInjected) {
+        console.log(picocolors_1.default.yellow(`⚠️ Could not automatically find injection point. Please add <${SDK_COMPONENT_NAME} /> manually.`));
+    }
+    else {
+        await sourceFile.save();
+        console.log(picocolors_1.default.green(`✅ File updated successfully!`));
+    }
     return true;
 }

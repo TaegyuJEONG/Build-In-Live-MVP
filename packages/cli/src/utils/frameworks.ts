@@ -1,48 +1,55 @@
 import fs from 'fs/promises';
 import path from 'path';
 
+export type FrameworkType = 'nextjs' | 'vitereact' | 'unknown';
+
 /**
- * Detects if the current directory is a Next.js App Router project.
+ * Detects the framework of the current project.
  * @param cwd The current working directory
- * @returns true if it's a Next.js App Router project
+ * @returns FrameworkType string
  */
-export async function detectNextJsAppRouter(cwd: string): Promise<boolean> {
+export async function detectFramework(cwd: string): Promise<FrameworkType> {
   try {
-    // Check for package.json to verify Next.js dependency
     const packageJsonPath = path.join(cwd, 'package.json');
     const packageJsonStr = await fs.readFile(packageJsonPath, 'utf-8');
     const packageJson = JSON.parse(packageJsonStr);
 
-    const hasNextDep = 
-      (packageJson.dependencies && packageJson.dependencies.next) || 
-      (packageJson.devDependencies && packageJson.devDependencies.next);
+    const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
 
-    if (!hasNextDep) {
-      return false;
-    }
-
-    // Check for 'app' directory (src/app or app)
-    const appDirRoots = [
-      path.join(cwd, 'app'),
-      path.join(cwd, 'src', 'app')
-    ];
-
-    let hasAppDir = false;
-    for (const dir of appDirRoots) {
-      try {
-        const stats = await fs.stat(dir);
-        if (stats.isDirectory()) {
-          hasAppDir = true;
-          break;
+    // 1. Check for Next.js App Router
+    if (deps.next) {
+      const appDirRoots = [
+        path.join(cwd, 'app'),
+        path.join(cwd, 'src', 'app')
+      ];
+      for (const dir of appDirRoots) {
+        try {
+          const stats = await fs.stat(dir);
+          if (stats.isDirectory()) return 'nextjs';
+        } catch (e) {
+          // ignore
         }
-      } catch (e) {
-        // Directory does not exist
       }
     }
 
-    return hasAppDir;
+    // 2. Check for Vite React
+    if (deps.vite && (deps.react || deps['@vitejs/plugin-react'])) {
+      const viteRoots = [
+        path.join(cwd, 'src', 'main.tsx'),
+        path.join(cwd, 'src', 'main.jsx')
+      ];
+      for (const file of viteRoots) {
+        try {
+          const stats = await fs.stat(file);
+          if (stats.isFile()) return 'vitereact';
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
+    return 'unknown';
   } catch (error) {
-    console.error('Error detecting framework:', error);
-    return false;
+    return 'unknown';
   }
 }

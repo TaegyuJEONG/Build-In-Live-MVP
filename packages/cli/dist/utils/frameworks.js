@@ -3,47 +3,57 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.detectNextJsAppRouter = detectNextJsAppRouter;
+exports.detectFramework = detectFramework;
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
 /**
- * Detects if the current directory is a Next.js App Router project.
+ * Detects the framework of the current project.
  * @param cwd The current working directory
- * @returns true if it's a Next.js App Router project
+ * @returns FrameworkType string
  */
-async function detectNextJsAppRouter(cwd) {
+async function detectFramework(cwd) {
     try {
-        // Check for package.json to verify Next.js dependency
         const packageJsonPath = path_1.default.join(cwd, 'package.json');
         const packageJsonStr = await promises_1.default.readFile(packageJsonPath, 'utf-8');
         const packageJson = JSON.parse(packageJsonStr);
-        const hasNextDep = (packageJson.dependencies && packageJson.dependencies.next) ||
-            (packageJson.devDependencies && packageJson.devDependencies.next);
-        if (!hasNextDep) {
-            return false;
-        }
-        // Check for 'app' directory (src/app or app)
-        const appDirRoots = [
-            path_1.default.join(cwd, 'app'),
-            path_1.default.join(cwd, 'src', 'app')
-        ];
-        let hasAppDir = false;
-        for (const dir of appDirRoots) {
-            try {
-                const stats = await promises_1.default.stat(dir);
-                if (stats.isDirectory()) {
-                    hasAppDir = true;
-                    break;
+        const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+        // 1. Check for Next.js App Router
+        if (deps.next) {
+            const appDirRoots = [
+                path_1.default.join(cwd, 'app'),
+                path_1.default.join(cwd, 'src', 'app')
+            ];
+            for (const dir of appDirRoots) {
+                try {
+                    const stats = await promises_1.default.stat(dir);
+                    if (stats.isDirectory())
+                        return 'nextjs';
+                }
+                catch (e) {
+                    // ignore
                 }
             }
-            catch (e) {
-                // Directory does not exist
+        }
+        // 2. Check for Vite React
+        if (deps.vite && (deps.react || deps['@vitejs/plugin-react'])) {
+            const viteRoots = [
+                path_1.default.join(cwd, 'src', 'main.tsx'),
+                path_1.default.join(cwd, 'src', 'main.jsx')
+            ];
+            for (const file of viteRoots) {
+                try {
+                    const stats = await promises_1.default.stat(file);
+                    if (stats.isFile())
+                        return 'vitereact';
+                }
+                catch (e) {
+                    // ignore
+                }
             }
         }
-        return hasAppDir;
+        return 'unknown';
     }
     catch (error) {
-        console.error('Error detecting framework:', error);
-        return false;
+        return 'unknown';
     }
 }

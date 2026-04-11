@@ -3,7 +3,7 @@
 import { Command } from 'commander';
 import prompts from 'prompts';
 import pc from 'picocolors';
-import { detectNextJsAppRouter } from './utils/frameworks';
+import { detectFramework, FrameworkType } from './utils/frameworks';
 import { loginWithDeviceFlow } from './auth/deviceFlow';
 import { injectSDK } from './ast/injectSDK';
 
@@ -23,13 +23,15 @@ program
 
     const cwd = process.cwd();
     // 1. Framework detection
-    const isNextJsAppRouter = await detectNextJsAppRouter(cwd);
+    const frameworkType = await detectFramework(cwd);
     
-    if (!isNextJsAppRouter) {
-      console.log(pc.red('❌ Currently, only Next.js App Router projects are supported.'));
-      process.exit(1);
+    if (frameworkType === 'nextjs') {
+      console.log(pc.green('✅ Next.js App Router detected.'));
+    } else if (frameworkType === 'vitereact') {
+      console.log(pc.green('✅ Vite React detected.'));
+    } else {
+      console.log(pc.yellow('⚠️ Unknown or unsupported framework detected. Proceeding in Manual Mode.'));
     }
-    console.log(pc.green('✅ Next.js App Router detected.'));
 
     // 2. Prompt for user confirmation
     const response = await prompts({
@@ -117,11 +119,18 @@ program
     }
 
     // 6. Inject SDK via AST Parsing
-    console.log(pc.cyan('\n📦 Starting SDK Code Injection...'));
-    await injectSDK(cwd);
-    
-    console.log(pc.bold(pc.green('\n✨ Scaffold complete!')));
-    console.log(pc.green('Your project is now fully connected to Build-In-Live.'));
+    if (frameworkType !== 'unknown') {
+      console.log(pc.cyan('\n📦 Starting SDK Code Injection...'));
+      await injectSDK(cwd, frameworkType);
+      
+      console.log(pc.bold(pc.green('\n✨ Scaffold complete!')));
+      console.log(pc.green('Your project is now fully connected to Build-In-Live.'));
+    } else {
+      console.log(pc.bold(pc.green('\n✨ Scaffold partially complete!')));
+      console.log(pc.green('Your project is registered in Build-In-Live, but we could not automatically inject the SDK.'));
+      console.log(pc.cyan('\nPlease manually add the following code to your root layout or entry file:'));
+      console.log(pc.yellow('\nimport { LiveFeedbackSDK } from "@build-in-live/sdk";\n\n// Place inside your root component:\n<LiveFeedbackSDK />\n'));
+    }
   });
 
 program.parse(process.argv);

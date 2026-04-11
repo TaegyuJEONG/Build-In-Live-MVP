@@ -56,12 +56,16 @@ program
     console.log(picocolors_1.default.gray('Scanning your project layout...'));
     const cwd = process.cwd();
     // 1. Framework detection
-    const isNextJsAppRouter = await (0, frameworks_1.detectNextJsAppRouter)(cwd);
-    if (!isNextJsAppRouter) {
-        console.log(picocolors_1.default.red('❌ Currently, only Next.js App Router projects are supported.'));
-        process.exit(1);
+    const frameworkType = await (0, frameworks_1.detectFramework)(cwd);
+    if (frameworkType === 'nextjs') {
+        console.log(picocolors_1.default.green('✅ Next.js App Router detected.'));
     }
-    console.log(picocolors_1.default.green('✅ Next.js App Router detected.'));
+    else if (frameworkType === 'vitereact') {
+        console.log(picocolors_1.default.green('✅ Vite React detected.'));
+    }
+    else {
+        console.log(picocolors_1.default.yellow('⚠️ Unknown or unsupported framework detected. Proceeding in Manual Mode.'));
+    }
     // 2. Prompt for user confirmation
     const response = await (0, prompts_1.default)({
         type: 'confirm',
@@ -145,9 +149,17 @@ program
         console.error(picocolors_1.default.red('❌ Failed to sync project data to backend.'), err);
     }
     // 6. Inject SDK via AST Parsing
-    console.log(picocolors_1.default.cyan('\n📦 Starting SDK Code Injection...'));
-    await (0, injectSDK_1.injectSDK)(cwd);
-    console.log(picocolors_1.default.bold(picocolors_1.default.green('\n✨ Scaffold complete!')));
-    console.log(picocolors_1.default.green('Your project is now fully connected to Build-In-Live.'));
+    if (frameworkType !== 'unknown') {
+        console.log(picocolors_1.default.cyan('\n📦 Starting SDK Code Injection...'));
+        await (0, injectSDK_1.injectSDK)(cwd, frameworkType);
+        console.log(picocolors_1.default.bold(picocolors_1.default.green('\n✨ Scaffold complete!')));
+        console.log(picocolors_1.default.green('Your project is now fully connected to Build-In-Live.'));
+    }
+    else {
+        console.log(picocolors_1.default.bold(picocolors_1.default.green('\n✨ Scaffold partially complete!')));
+        console.log(picocolors_1.default.green('Your project is registered in Build-In-Live, but we could not automatically inject the SDK.'));
+        console.log(picocolors_1.default.cyan('\nPlease manually add the following code to your root layout or entry file:'));
+        console.log(picocolors_1.default.yellow('\nimport { LiveFeedbackSDK } from "@build-in-live/sdk";\n\n// Place inside your root component:\n<LiveFeedbackSDK />\n'));
+    }
 });
 program.parse(process.argv);
