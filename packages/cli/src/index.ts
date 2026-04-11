@@ -105,15 +105,15 @@ program
     // 5. Send data to Build-In-Live Backend
     console.log(pc.cyan('\n📡 Syncing project with Build-In-Live...'));
     try {
-      // Mock fetch call to the newly built API
-      // const res = await fetch('https://buildinlive.com/api/project/sync', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      //   body: JSON.stringify(projectPayload)
-      // });
+      const res = await fetch('https://build-in-live-mvp.vercel.app/api/project/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(projectPayload)
+      });
+      if (!res.ok) throw new Error('API Sync Failed');
       console.log(pc.green('✔ Sync complete!'));
     } catch (err) {
-      console.log(pc.red('❌ Failed to sync project data.'));
+      console.error(pc.red('❌ Failed to sync project data to backend.'), err);
     }
 
     // 6. Inject SDK via AST Parsing

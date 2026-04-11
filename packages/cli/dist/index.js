@@ -132,16 +132,17 @@ program
     // 5. Send data to Build-In-Live Backend
     console.log(picocolors_1.default.cyan('\n📡 Syncing project with Build-In-Live...'));
     try {
-        // Mock fetch call to the newly built API
-        // const res = await fetch('https://buildinlive.com/api/project/sync', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        //   body: JSON.stringify(projectPayload)
-        // });
+        const res = await fetch('https://build-in-live-mvp.vercel.app/api/project/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(projectPayload)
+        });
+        if (!res.ok)
+            throw new Error('API Sync Failed');
         console.log(picocolors_1.default.green('✔ Sync complete!'));
     }
     catch (err) {
-        console.log(picocolors_1.default.red('❌ Failed to sync project data.'));
+        console.error(picocolors_1.default.red('❌ Failed to sync project data to backend.'), err);
     }
     // 6. Inject SDK via AST Parsing
     console.log(picocolors_1.default.cyan('\n📦 Starting SDK Code Injection...'));
