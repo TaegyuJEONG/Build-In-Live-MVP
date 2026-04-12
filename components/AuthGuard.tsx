@@ -28,7 +28,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
 
         // Skip other checks for auth/feedback pages and onboarding (if not already handled)
-        if (pathname === '/onboarding' || pathname.startsWith('/auth') || pathname.startsWith('/feedback')) return;
+        if (pathname === '/onboarding' || pathname.startsWith('/auth') || pathname.startsWith('/feedback') || pathname.startsWith('/activate')) return;
         
         if (!userData?.hasProject) {
           router.push('/onboarding');
@@ -37,7 +37,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     if (!isLoading) {
-      if (!firebaseUser && !pathname.startsWith('/auth') && !pathname.startsWith('/feedback') && !pathname.startsWith('/desk') && pathname !== '/dashboard' && pathname !== '/') {
+      if (!firebaseUser && !pathname.startsWith('/auth') && !pathname.startsWith('/feedback') && !pathname.startsWith('/desk') && !pathname.startsWith('/activate') && pathname !== '/dashboard' && pathname !== '/') {
         router.push('/auth')
       } else if (firebaseUser && pathname === '/auth') {
         router.push('/')

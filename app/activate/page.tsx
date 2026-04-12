@@ -3,8 +3,9 @@
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useStore } from "@/lib/store"
-import { auth } from "@/lib/firebase"
-import { Terminal, Check, Loader2, ShieldCheck, LogIn } from "lucide-react"
+import { auth, db } from "@/lib/firebase"
+import { doc, getDoc, setDoc } from "firebase/firestore"
+import { Terminal, Check, Loader2, ShieldCheck, LogIn, User } from "lucide-react"
 
 function ActivateContent() {
   const { firebaseUser } = useStore()
@@ -16,10 +17,44 @@ function ActivateContent() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
 
+  const [needsName, setNeedsName] = useState(false)
+  const [userName, setUserName] = useState('')
+  const [nameSaving, setNameSaving] = useState(false)
+  const [checkingProfile, setCheckingProfile] = useState(true)
+
   // Pre-fill code from URL
   useEffect(() => {
     if (codeParam) setInputCode(codeParam.toUpperCase())
   }, [codeParam])
+
+  // Check if logged-in user has a name set
+  useEffect(() => {
+    if (firebaseUser === null) { setCheckingProfile(false); return }
+    if (!firebaseUser || !db) return
+    const check = async () => {
+      const userSnap = await getDoc(doc(db!, 'users', firebaseUser.uid))
+      const data = userSnap.data()
+      if (!data?.displayName && !firebaseUser.displayName) {
+        setNeedsName(true)
+      }
+      setCheckingProfile(false)
+    }
+    check()
+  }, [firebaseUser])
+
+  const handleNameSubmit = async () => {
+    if (!firebaseUser || !db || !userName.trim()) return
+    setNameSaving(true)
+    try {
+      await setDoc(doc(db!, 'users', firebaseUser.uid), {
+        displayName: userName.trim(),
+        email: firebaseUser.email,
+      }, { merge: true })
+      setNeedsName(false)
+    } finally {
+      setNameSaving(false)
+    }
+  }
 
   const handleApprove = async () => {
     if (!firebaseUser || !auth) return
@@ -53,6 +88,52 @@ function ActivateContent() {
       setStatus('error')
       setErrorMsg('Network error. Please try again.')
     }
+  }
+
+  // Profile check in progress
+  if (firebaseUser && checkingProfile) {
+    return (
+      <div className="text-[10px] tracking-[0.4em] text-[#F95A56] animate-pulse uppercase">
+        Verifying...
+      </div>
+    )
+  }
+
+  // Logged in but needs to set a name first
+  if (firebaseUser && needsName) {
+    return (
+      <div className="w-full max-w-md z-10 space-y-8">
+        <div className="text-center space-y-3">
+          <div className="w-16 h-16 bg-[#F95A56]/10 border border-[#F95A56]/30 mx-auto flex items-center justify-center">
+            <User className="w-8 h-8 text-[#F95A56]" />
+          </div>
+          <h1 className="text-2xl font-black tracking-tighter text-white uppercase">Set_Your_Name</h1>
+          <p className="text-xs tracking-[0.2em] text-white/40 uppercase">
+            Choose a name for your Build In Live profile before authorizing.
+          </p>
+        </div>
+        <div className="bg-[#131313] border border-white/10 p-6 space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] tracking-[0.2em] text-white/50 uppercase block">Name</label>
+            <input
+              className="w-full bg-transparent border border-white/20 px-4 py-4 text-white text-center text-lg font-black tracking-widest focus:border-[#F95A56] focus:outline-none transition-colors uppercase"
+              placeholder="YOUR_NAME"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              disabled={nameSaving}
+              onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
+            />
+          </div>
+          <button
+            onClick={handleNameSubmit}
+            disabled={nameSaving || !userName.trim()}
+            className="w-full h-14 bg-[#F95A56] hover:brightness-110 text-white font-black tracking-[0.3em] text-xs transition-all uppercase flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {nameSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> SAVING...</> : 'CONTINUE →'}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // Not logged in
