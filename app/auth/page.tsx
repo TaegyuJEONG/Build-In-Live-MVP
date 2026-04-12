@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { auth } from "@/lib/firebase"
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signInWithPopup, 
-  GoogleAuthProvider 
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider
 } from "firebase/auth"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Mail, Lock, Chrome } from "lucide-react"
 import { useStore } from "@/lib/store"
 
@@ -19,14 +19,17 @@ export default function AuthPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { firebaseUser } = useStore()
+
+  const redirectTo = searchParams.get('redirect') || '/'
 
   // If already logged in, redirect away from auth page
   useEffect(() => {
     if (firebaseUser) {
-      router.push("/")
+      router.push(redirectTo)
     }
-  }, [firebaseUser, router])
+  }, [firebaseUser, router, redirectTo])
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,7 +43,7 @@ export default function AuthPage() {
         await createUserWithEmailAndPassword(auth, email, password)
       }
       // Redirection will be handled by useEffect or AuthGuard
-      router.push("/")
+      router.push(redirectTo)
     } catch (err: any) {
       let msg = err.message;
       if (err.code?.includes('invalid-credential') || err.code?.includes('user-not-found') || err.code?.includes('wrong-password')) {
@@ -60,7 +63,7 @@ export default function AuthPage() {
     setLoading(true)
     try {
       await signInWithPopup(auth, provider)
-      router.push("/")
+      router.push(redirectTo)
     } catch (err: any) {
       setError(err.message)
     } finally {
