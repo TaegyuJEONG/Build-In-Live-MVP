@@ -144,16 +144,16 @@ function ActivateContent() {
           <div className="w-16 h-16 bg-[#F95A56]/10 border border-[#F95A56]/30 mx-auto flex items-center justify-center">
             <LogIn className="w-8 h-8 text-[#F95A56]" />
           </div>
-          <h1 className="text-2xl font-black tracking-tighter text-white uppercase">Login_Required</h1>
+          <h1 className="text-2xl font-black tracking-tighter text-white uppercase">Sign_In_Required</h1>
           <p className="text-xs tracking-[0.2em] text-white/40 uppercase">
-            You need to be logged in to authorize your CLI device.
+            Log in or create a free account to authorize your CLI device.
           </p>
         </div>
         <button
           onClick={() => router.push(`/auth?redirect=/activate${codeParam ? `?code=${codeParam}` : ''}`)}
           className="w-full h-14 bg-[#F95A56] hover:brightness-110 text-white font-black tracking-[0.3em] text-xs transition-all uppercase"
         >
-          GO TO LOGIN →
+          LOG IN / SIGN UP →
         </button>
       </div>
     )
