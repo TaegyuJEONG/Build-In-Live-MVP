@@ -140,9 +140,11 @@ program
         }
     }
     // 5. Send data to Build-In-Live Backend
+    const APP_BASE = 'https://build-in-live-mvp.vercel.app';
+    let projectId = '';
     console.log(picocolors_1.default.cyan('\n📡 Syncing project with Build-In-Live...'));
     try {
-        const res = await fetch('https://build-in-live-mvp.vercel.app/api/project/sync', {
+        const res = await fetch(`${APP_BASE}/api/project/sync`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify(projectPayload)
@@ -150,10 +152,8 @@ program
         if (!res.ok)
             throw new Error('API Sync Failed');
         const syncData = await res.json();
+        projectId = syncData.projectId || '';
         console.log(picocolors_1.default.green('✔ Sync complete!'));
-        if (syncData.projectId) {
-            console.log(picocolors_1.default.gray(`  Project ID: ${syncData.projectId}`));
-        }
     }
     catch (err) {
         console.error(picocolors_1.default.red('❌ Failed to sync project data to backend.'), err);
@@ -162,14 +162,21 @@ program
     if (frameworkType !== 'unknown') {
         console.log(picocolors_1.default.cyan('\n📦 Starting SDK Code Injection...'));
         await (0, injectSDK_1.injectSDK)(cwd, frameworkType);
-        console.log(picocolors_1.default.bold(picocolors_1.default.green('\n✨ Scaffold complete!')));
-        console.log(picocolors_1.default.green('Your project is now fully connected to Build-In-Live.'));
     }
     else {
-        console.log(picocolors_1.default.bold(picocolors_1.default.green('\n✨ Scaffold partially complete!')));
-        console.log(picocolors_1.default.green('Your project is registered in Build-In-Live, but we could not automatically inject the SDK.'));
-        console.log(picocolors_1.default.cyan('\nPlease manually add the following code to your root layout or entry file:'));
-        console.log(picocolors_1.default.yellow('\nimport { LiveFeedbackSDK } from "@build-in-live/sdk";\n\n// Place inside your root component:\n<LiveFeedbackSDK />\n'));
+        console.log(picocolors_1.default.yellow('\n⚠️  Could not automatically inject the SDK. Please add it manually:'));
+        console.log(picocolors_1.default.yellow('import { LiveFeedbackSDK } from "@build-in-live/sdk";\n// Place inside your root component:\n<LiveFeedbackSDK />'));
+    }
+    // 7. Done — show project links
+    console.log(picocolors_1.default.bold(picocolors_1.default.green('\n✨ All done! Your project is live on Build-In-Live.\n')));
+    if (projectId) {
+        const projectUrl = `${APP_BASE}/project/${projectId}`;
+        const feedbackUrl = `${APP_BASE}/feedback/${projectId}`;
+        console.log(picocolors_1.default.white('  📋 Review your project page:'));
+        console.log(picocolors_1.default.cyan(`     ${projectUrl}\n`));
+        console.log(picocolors_1.default.white('  🔗 Share this link to collect feedback:'));
+        console.log(picocolors_1.default.cyan(`     ${feedbackUrl}\n`));
+        console.log(picocolors_1.default.gray('  Open the project page to verify your details and start inviting collaborators.'));
     }
 });
 program.parse(process.argv);

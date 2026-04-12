@@ -112,19 +112,19 @@ program
     }
 
     // 5. Send data to Build-In-Live Backend
+    const APP_BASE = 'https://build-in-live-mvp.vercel.app';
+    let projectId = '';
     console.log(pc.cyan('\n📡 Syncing project with Build-In-Live...'));
     try {
-      const res = await fetch('https://build-in-live-mvp.vercel.app/api/project/sync', {
+      const res = await fetch(`${APP_BASE}/api/project/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(projectPayload)
       });
       if (!res.ok) throw new Error('API Sync Failed');
       const syncData = await res.json();
+      projectId = syncData.projectId || '';
       console.log(pc.green('✔ Sync complete!'));
-      if (syncData.projectId) {
-        console.log(pc.gray(`  Project ID: ${syncData.projectId}`));
-      }
     } catch (err) {
       console.error(pc.red('❌ Failed to sync project data to backend.'), err);
     }
@@ -133,14 +133,21 @@ program
     if (frameworkType !== 'unknown') {
       console.log(pc.cyan('\n📦 Starting SDK Code Injection...'));
       await injectSDK(cwd, frameworkType);
-      
-      console.log(pc.bold(pc.green('\n✨ Scaffold complete!')));
-      console.log(pc.green('Your project is now fully connected to Build-In-Live.'));
     } else {
-      console.log(pc.bold(pc.green('\n✨ Scaffold partially complete!')));
-      console.log(pc.green('Your project is registered in Build-In-Live, but we could not automatically inject the SDK.'));
-      console.log(pc.cyan('\nPlease manually add the following code to your root layout or entry file:'));
-      console.log(pc.yellow('\nimport { LiveFeedbackSDK } from "@build-in-live/sdk";\n\n// Place inside your root component:\n<LiveFeedbackSDK />\n'));
+      console.log(pc.yellow('\n⚠️  Could not automatically inject the SDK. Please add it manually:'));
+      console.log(pc.yellow('import { LiveFeedbackSDK } from "@build-in-live/sdk";\n// Place inside your root component:\n<LiveFeedbackSDK />'));
+    }
+
+    // 7. Done — show project links
+    console.log(pc.bold(pc.green('\n✨ All done! Your project is live on Build-In-Live.\n')));
+    if (projectId) {
+      const projectUrl = `${APP_BASE}/project/${projectId}`;
+      const feedbackUrl = `${APP_BASE}/feedback/${projectId}`;
+      console.log(pc.white('  📋 Review your project page:'));
+      console.log(pc.cyan(`     ${projectUrl}\n`));
+      console.log(pc.white('  🔗 Share this link to collect feedback:'));
+      console.log(pc.cyan(`     ${feedbackUrl}\n`));
+      console.log(pc.gray('  Open the project page to verify your details and start inviting collaborators.'));
     }
   });
 
