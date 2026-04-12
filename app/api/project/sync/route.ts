@@ -57,6 +57,12 @@ export async function POST(req: Request) {
     const docRef = await adminDb.collection('projects').add(payloadToSave);
     console.log('[API] Project saved to Firestore:', docRef.id);
 
+    // Mark user as having a project so AuthGuard stops redirecting to onboarding
+    await adminDb.collection('users').doc(userId).set({
+      hasProject: true,
+      primaryProjectId: docRef.id,
+    }, { merge: true });
+
     return NextResponse.json({ success: true, projectId: docRef.id });
 
   } catch (error) {

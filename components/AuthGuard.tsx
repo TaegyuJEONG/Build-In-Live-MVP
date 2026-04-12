@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useStore } from "@/lib/store"
 import { usePathname, useRouter } from "next/navigation"
-import { doc, getDoc } from "firebase/firestore"
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -31,7 +31,18 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         if (pathname === '/onboarding' || pathname.startsWith('/auth') || pathname.startsWith('/feedback') || pathname.startsWith('/activate')) return;
         
         if (!userData?.hasProject) {
-          router.push('/onboarding');
+          // Fallback: check if user actually has a project in the projects collection
+          // (covers users who signed up via CLI before hasProject flag existed)
+          const projectsSnap = await getDocs(
+            query(collection(db!, 'projects'), where('ownerId', '==', firebaseUser.uid))
+          );
+          if (!projectsSnap.empty) {
+            // They have a project — update the flag and proceed
+            const { setDoc } = await import('firebase/firestore');
+            await setDoc(doc(db!, 'users', firebaseUser.uid), { hasProject: true }, { merge: true });
+          } else {
+            router.push('/onboarding');
+          }
         }
       }
     }
