@@ -21,8 +21,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         const userDoc = await getDoc(doc(db!, 'users', firebaseUser.uid));
         const userData = userDoc.data();
 
-        // If user already has a project and tries to visit onboarding, redirect to home
-        if (userData?.hasProject && pathname === '/onboarding') {
+        // If user already has a project and tries to visit onboarding WITHOUT a projectId, redirect to home
+        const hasProjectId = typeof window !== 'undefined' && window.location.search.includes('projectId=');
+        if (userData?.hasProject && pathname === '/onboarding' && !hasProjectId) {
           router.push('/');
           return;
         }
