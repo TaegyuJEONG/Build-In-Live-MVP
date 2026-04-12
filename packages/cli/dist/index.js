@@ -80,6 +80,12 @@ program
     // 3. Initiate Device Flow OAuth
     const token = await (0, deviceFlow_1.loginWithDeviceFlow)();
     // 4. Project Info Gathering (AI vs Manual)
+    const { projectUrl } = await (0, prompts_1.default)({
+        type: 'text',
+        name: 'projectUrl',
+        message: 'Your deployed project URL (e.g. https://myapp.vercel.app):',
+        validate: (v) => v.startsWith('http') ? true : 'Please enter a valid URL starting with http',
+    });
     const infoChoice = await (0, prompts_1.default)({
         type: 'select',
         name: 'method',
@@ -89,7 +95,7 @@ program
             { title: '✍️  Enter manually', value: 'manual' }
         ]
     });
-    let projectPayload = {};
+    let projectPayload = { url: projectUrl };
     if (infoChoice.method === 'manual') {
         const manualData = await (0, prompts_1.default)([
             {
@@ -108,8 +114,8 @@ program
                 message: 'Tech Stack (comma separated, e.g. React, Next.js, Node):',
             }
         ]);
-        // Process manual data natively
         projectPayload = {
+            ...projectPayload,
             name: manualData.name,
             about: manualData.about,
             techStacks: manualData.techStacks.split(',').map((s) => s.trim()),
@@ -125,12 +131,12 @@ program
             const fs = await Promise.resolve().then(() => __importStar(require('fs/promises')));
             const path = await Promise.resolve().then(() => __importStar(require('path')));
             const readmeContent = await fs.readFile(path.join(cwd, 'README.md'), 'utf-8');
-            projectPayload = { readmeText: readmeContent };
+            projectPayload = { ...projectPayload, readmeText: readmeContent };
             console.log(picocolors_1.default.green('✔ README loaded successfully.'));
         }
         catch (err) {
             console.log(picocolors_1.default.yellow('⚠️ No README.md found in the root directory. Falling back to empty data.'));
-            projectPayload = { readmeText: '' };
+            projectPayload = { ...projectPayload, readmeText: '' };
         }
     }
     // 5. Send data to Build-In-Live Backend
@@ -143,7 +149,11 @@ program
         });
         if (!res.ok)
             throw new Error('API Sync Failed');
+        const syncData = await res.json();
         console.log(picocolors_1.default.green('✔ Sync complete!'));
+        if (syncData.projectId) {
+            console.log(picocolors_1.default.gray(`  Project ID: ${syncData.projectId}`));
+        }
     }
     catch (err) {
         console.error(picocolors_1.default.red('❌ Failed to sync project data to backend.'), err);

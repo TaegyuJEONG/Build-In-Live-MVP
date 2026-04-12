@@ -1,34 +1,37 @@
 import { NextResponse } from 'next/server';
-import { extractMetadataFromReadme } from '@/lib/ai/metadataExtractor';
-// Assuming you have initialized firebase-admin in your project elsewhere, e.g. in lib/firebaseAdmin.ts
+import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebaseAdmin';
+import { extractMetadataFromReadme } from '@/lib/ai/metadataExtractor';
 
 export async function POST(req: Request) {
   try {
-    // 1. Verify Authentication (Device Flow Token)
+    // 1. Verify CLI access token
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const token = authHeader.split(' ')[1];
-    
-    // TODO: Actually verify the token from device_sessions
-    // For now, we trust the flow, but in production, we should lookup the userId.
 
-    // 2. Parse Request Payload
+    const tokenDoc = await adminDb.collection('cli_tokens').doc(token).get();
+    if (!tokenDoc.exists) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+    const { userId } = tokenDoc.data()!;
+
+    // 2. Parse request payload
     const body = await req.json();
-    
-    let processedData;
+
+    let processedData: Record<string, any>;
 
     if (body.readmeText !== undefined) {
-      // AI Auto Generation Flow
+      // AI auto-generation flow
       const extracted = await extractMetadataFromReadme(body.readmeText);
       if (!extracted) {
         return NextResponse.json({ error: 'Failed to extract metadata' }, { status: 500 });
       }
       processedData = extracted;
     } else {
-      // Manual Input Flow
+      // Manual input flow
       processedData = {
         name: body.name || 'Untitled Project',
         about: body.about || '',
@@ -40,18 +43,21 @@ export async function POST(req: Request) {
       };
     }
 
+    // 3. Save to Firestore
     const payloadToSave = {
       ...processedData,
-      createdAt: new Date().toISOString(),
-      isVerified: false,
+      name: body.name || processedData.name || 'Untitled Project',
+      url: body.url || '',
+      ownerId: userId,
       feedbackCount: 0,
+      isVerified: false,
+      createdAt: FieldValue.serverTimestamp(),
     };
 
-    // 3. Save to Firestore (REAL)
     const docRef = await adminDb.collection('projects').add(payloadToSave);
-    console.log('[API] Saved project to Firestore with ID:', docRef.id);
+    console.log('[API] Project saved to Firestore:', docRef.id);
 
-    return NextResponse.json({ success: true, data: { ...payloadToSave, id: docRef.id } });
+    return NextResponse.json({ success: true, projectId: docRef.id });
 
   } catch (error) {
     console.error('Project sync error:', error);

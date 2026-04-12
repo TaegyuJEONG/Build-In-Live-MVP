@@ -50,6 +50,13 @@ program
     const token = await loginWithDeviceFlow();
 
     // 4. Project Info Gathering (AI vs Manual)
+    const { projectUrl } = await prompts({
+      type: 'text',
+      name: 'projectUrl',
+      message: 'Your deployed project URL (e.g. https://myapp.vercel.app):',
+      validate: (v: string) => v.startsWith('http') ? true : 'Please enter a valid URL starting with http',
+    });
+
     const infoChoice = await prompts({
       type: 'select',
       name: 'method',
@@ -60,7 +67,7 @@ program
       ]
     });
 
-    let projectPayload: any = {};
+    let projectPayload: any = { url: projectUrl };
 
     if (infoChoice.method === 'manual') {
       const manualData = await prompts([
@@ -80,8 +87,8 @@ program
           message: 'Tech Stack (comma separated, e.g. React, Next.js, Node):',
         }
       ]);
-      // Process manual data natively
       projectPayload = {
+        ...projectPayload,
         name: manualData.name,
         about: manualData.about,
         techStacks: manualData.techStacks.split(',').map((s: string) => s.trim()),
@@ -96,11 +103,11 @@ program
         const fs = await import('fs/promises');
         const path = await import('path');
         const readmeContent = await fs.readFile(path.join(cwd, 'README.md'), 'utf-8');
-        projectPayload = { readmeText: readmeContent };
+        projectPayload = { ...projectPayload, readmeText: readmeContent };
         console.log(pc.green('✔ README loaded successfully.'));
       } catch (err) {
         console.log(pc.yellow('⚠️ No README.md found in the root directory. Falling back to empty data.'));
-        projectPayload = { readmeText: '' };
+        projectPayload = { ...projectPayload, readmeText: '' };
       }
     }
 
@@ -113,7 +120,11 @@ program
         body: JSON.stringify(projectPayload)
       });
       if (!res.ok) throw new Error('API Sync Failed');
+      const syncData = await res.json();
       console.log(pc.green('✔ Sync complete!'));
+      if (syncData.projectId) {
+        console.log(pc.gray(`  Project ID: ${syncData.projectId}`));
+      }
     } catch (err) {
       console.error(pc.red('❌ Failed to sync project data to backend.'), err);
     }

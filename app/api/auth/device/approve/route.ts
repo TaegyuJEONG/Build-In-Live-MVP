@@ -34,14 +34,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Code has expired' }, { status: 410 });
     }
 
-    // 3. Create a custom token for the CLI to use
-    const customToken = await adminAuth.createCustomToken(userId);
+    // 3. Generate an opaque access token for the CLI and persist it
+    const accessToken = crypto.randomUUID();
+    await adminDb.collection('cli_tokens').doc(accessToken).set({
+      userId,
+      createdAt: Date.now(),
+    });
 
     // 4. Mark session as approved
     await sessionDoc.ref.update({
       status: 'approved',
       userId,
-      accessToken: customToken,
+      accessToken,
       approvedAt: Date.now(),
     });
 
