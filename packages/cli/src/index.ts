@@ -114,6 +114,7 @@ program
     // 5. Send data to Build-In-Live Backend
     const APP_BASE = 'https://build-in-live-mvp.vercel.app';
     let projectId = '';
+    let userId = '';
     console.log(pc.cyan('\n📡 Syncing project with Build-In-Live...'));
     try {
       const res = await fetch(`${APP_BASE}/api/project/sync`, {
@@ -124,6 +125,7 @@ program
       if (!res.ok) throw new Error('API Sync Failed');
       const syncData = await res.json();
       projectId = syncData.projectId || '';
+      userId = syncData.userId || '';
       console.log(pc.green('✔ Sync complete!'));
     } catch (err) {
       console.error(pc.red('❌ Failed to sync project data to backend.'), err);
@@ -141,10 +143,12 @@ program
     // 7. Done — show project links
     console.log(pc.bold(pc.green('\n✨ All done! Your project is live on Build-In-Live.\n')));
     if (projectId) {
-      const projectUrl = `${APP_BASE}/project/${projectId}`;
+      const deskUrl = userId
+        ? `${APP_BASE}/desk/${userId}?projectId=${projectId}`
+        : `${APP_BASE}/dashboard`;
       const feedbackUrl = `${APP_BASE}/feedback/${projectId}`;
       console.log(pc.white('  📋 Review your project page:'));
-      console.log(pc.cyan(`     ${projectUrl}\n`));
+      console.log(pc.cyan(`     ${deskUrl}\n`));
       console.log(pc.white('  🔗 Share this link to collect feedback:'));
       console.log(pc.cyan(`     ${feedbackUrl}\n`));
       console.log(pc.gray('  Open the project page to verify your details and start inviting collaborators.'));

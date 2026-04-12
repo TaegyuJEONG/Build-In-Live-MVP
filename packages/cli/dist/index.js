@@ -142,6 +142,7 @@ program
     // 5. Send data to Build-In-Live Backend
     const APP_BASE = 'https://build-in-live-mvp.vercel.app';
     let projectId = '';
+    let userId = '';
     console.log(picocolors_1.default.cyan('\n📡 Syncing project with Build-In-Live...'));
     try {
         const res = await fetch(`${APP_BASE}/api/project/sync`, {
@@ -153,6 +154,7 @@ program
             throw new Error('API Sync Failed');
         const syncData = await res.json();
         projectId = syncData.projectId || '';
+        userId = syncData.userId || '';
         console.log(picocolors_1.default.green('✔ Sync complete!'));
     }
     catch (err) {
@@ -170,10 +172,12 @@ program
     // 7. Done — show project links
     console.log(picocolors_1.default.bold(picocolors_1.default.green('\n✨ All done! Your project is live on Build-In-Live.\n')));
     if (projectId) {
-        const projectUrl = `${APP_BASE}/project/${projectId}`;
+        const deskUrl = userId
+            ? `${APP_BASE}/desk/${userId}?projectId=${projectId}`
+            : `${APP_BASE}/dashboard`;
         const feedbackUrl = `${APP_BASE}/feedback/${projectId}`;
         console.log(picocolors_1.default.white('  📋 Review your project page:'));
-        console.log(picocolors_1.default.cyan(`     ${projectUrl}\n`));
+        console.log(picocolors_1.default.cyan(`     ${deskUrl}\n`));
         console.log(picocolors_1.default.white('  🔗 Share this link to collect feedback:'));
         console.log(picocolors_1.default.cyan(`     ${feedbackUrl}\n`));
         console.log(picocolors_1.default.gray('  Open the project page to verify your details and start inviting collaborators.'));

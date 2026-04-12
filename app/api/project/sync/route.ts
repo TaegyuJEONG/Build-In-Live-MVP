@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       primaryProjectId: docRef.id,
     }, { merge: true });
 
-    return NextResponse.json({ success: true, projectId: docRef.id });
+    return NextResponse.json({ success: true, projectId: docRef.id, userId });
 
   } catch (error) {
     console.error('Project sync error:', error);
