@@ -150,10 +150,10 @@ function ActivateContent() {
           </p>
         </div>
         <button
-          onClick={() => router.push(`/auth?redirect=${encodeURIComponent(`/activate${codeParam ? `?code=${codeParam}` : ''}`)}`)}
+          onClick={() => router.push(`/auth?mode=signup&redirect=${encodeURIComponent(`/activate${codeParam ? `?code=${codeParam}` : ''}`)}`)}
           className="w-full h-14 bg-[#F95A56] hover:brightness-110 text-white font-black tracking-[0.3em] text-xs transition-all uppercase"
         >
-          LOG IN / SIGN UP →
+          SIGN UP / LOG IN →
         </button>
       </div>
     )

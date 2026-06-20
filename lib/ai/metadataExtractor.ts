@@ -6,12 +6,14 @@ const openai = new OpenAI({
 });
 
 export interface ExtractedProjectData {
+  name: string;
   about: string;
   categories: string[];
   platforms: string[];
   targetAudience: string[];
   techStacks: string[];
   useCases: string[];
+  logoUrl?: string;
 }
 
 /**
@@ -25,12 +27,14 @@ export async function extractMetadataFromReadme(readmeText: string): Promise<Ext
     
     Return ONLY a valid JSON object matching this exact structure:
     {
+      "name": "The title or name of the project",
       "about": "A 1-2 sentence compelling summary of what the project does.",
       "categories": ["Category 1", "Category 2"], // e.g., "Developer Tools", "AI", "Marketplace"
       "platforms": ["web", "ios", "android"], // the platforms this project runs on, default to ["web"] if unclear
       "targetAudience": ["target audience 1", "target audience 2"],
       "techStacks": ["Next.js", "React", "TypeScript", "Tailwind CSS"],
-      "useCases": ["Use case 1", "Use case 2"]
+      "useCases": ["Use case 1", "Use case 2"],
+      "logoUrl": "An absolute URL to a logo or thumbnail image if found in the README, otherwise null"
     }
 
     README TEXT:

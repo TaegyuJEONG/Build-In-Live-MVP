@@ -1,6 +1,6 @@
 {
   "name": "build-in-live-cli",
-  "version": "0.2.1",
+  "version": "0.2.3",
   "description": "Build-In-Live CLI tool for automated project metadata extraction and SDK injection",
   "main": "dist/index.js",
   "bin": {

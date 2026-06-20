@@ -37,11 +37,16 @@ export default function OnboardingPage() {
 
   // Initial setup based on URL params
   useEffect(() => {
+    const stepParam = searchParams.get('step');
     if (projectIdParam) {
       setCreatedProjectId(projectIdParam);
-      setStep(3); // Jump directly to SDK step (now Step 3)
+      if (stepParam) {
+        setStep(parseInt(stepParam) as any);
+      } else {
+        setStep(3); // Jump directly to SDK step (now Step 3)
+      }
     }
-  }, [projectIdParam]);
+  }, [projectIdParam, searchParams]);
 
   useEffect(() => {
     if (firebaseUser && db && !initialCheckDone) {
@@ -58,8 +63,8 @@ export default function OnboardingPage() {
               return;
             }
 
-            // If user already has a name, and we are at step 1, jump to Step 2
-            if (data.displayName && step === 1) {
+            // If user already has a name, and we are at step 1 (and not loading a specific project), jump to Step 2
+            if (data.displayName && step === 1 && !projectIdParam) {
               setStep(2);
             }
           }

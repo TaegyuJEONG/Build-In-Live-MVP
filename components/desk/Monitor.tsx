@@ -218,10 +218,10 @@ const Monitor: React.FC<MonitorProps> = ({
                     Back_To_Shots
                   </button>
                   <a 
-                    href={`/onboarding?projectId=${selectedProject?.id}`}
+                    href={`/onboarding?projectId=${selectedProject?.id}&step=4`}
                     className="px-6 py-2.5 bg-[#F95A56] text-white text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#ff6b67] shadow-[0_4px_20px_rgba(249,90,86,0.3)] rounded-sm"
                   >
-                    Install_SDK_Now
+                    Verify_SDK_Connection
                   </a>
                </div>
             </div>

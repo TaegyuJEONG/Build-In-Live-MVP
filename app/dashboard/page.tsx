@@ -1756,11 +1756,11 @@ export default function BuildInLive() {
 
                   if (editingProject) {
                     await useStore.getState().updateProject(editingProject.id, projectData as any);
+                    handleCloseModal();
                   } else {
-                    await addProject(projectData as any);
+                    const newId = await addProject(projectData as any);
+                    router.push(`/onboarding?projectId=${newId}&step=3`);
                   }
-                  
-                  handleCloseModal();
                 } catch (err) {
                   console.error(err);
                 } finally {

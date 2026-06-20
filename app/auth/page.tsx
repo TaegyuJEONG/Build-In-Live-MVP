@@ -13,14 +13,25 @@ import { Mail, Lock, Chrome } from "lucide-react"
 import { useStore } from "@/lib/store"
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true) // Default to login mode
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { firebaseUser } = useStore()
+  
+  const [isLogin, setIsLogin] = useState(() => {
+    return searchParams.get('mode') !== 'signup';
+  })
+
+  // Update isLogin if mode param changes manually
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    if (mode === 'signup') setIsLogin(false);
+    if (mode === 'login') setIsLogin(true);
+  }, [searchParams]);
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { firebaseUser } = useStore()
 
   const redirectTo = searchParams.get('redirect') || '/'
 

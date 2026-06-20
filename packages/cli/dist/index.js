@@ -77,70 +77,65 @@ program
         console.log(picocolors_1.default.yellow('Initialization aborted by user.'));
         process.exit(0);
     }
-    // 3. Initiate Device Flow OAuth
-    const token = await (0, deviceFlow_1.loginWithDeviceFlow)();
-    // 4. Project Info Gathering (AI vs Manual)
-    const { projectUrl } = await (0, prompts_1.default)({
-        type: 'text',
-        name: 'projectUrl',
-        message: 'Your deployed project URL (e.g. https://myapp.vercel.app):',
-        validate: (v) => v.startsWith('http') ? true : 'Please enter a valid URL starting with http',
-    });
-    const infoChoice = await (0, prompts_1.default)({
-        type: 'select',
-        name: 'method',
-        message: 'How would you like to set up your project details?',
-        choices: [
-            { title: '🤖 Auto-generate from README (Recommended)', value: 'auto' },
-            { title: '✍️  Enter manually', value: 'manual' }
-        ]
-    });
-    let projectPayload = { url: projectUrl };
-    if (infoChoice.method === 'manual') {
-        const manualData = await (0, prompts_1.default)([
-            {
-                type: 'text',
-                name: 'name',
-                message: 'Project Name:',
-            },
-            {
-                type: 'text',
-                name: 'about',
-                message: 'Short Description (1-2 sentences):',
-            },
-            {
-                type: 'text',
-                name: 'techStacks',
-                message: 'Tech Stack (comma separated, e.g. React, Next.js, Node):',
-            }
-        ]);
-        projectPayload = {
-            ...projectPayload,
-            name: manualData.name,
-            about: manualData.about,
-            techStacks: manualData.techStacks.split(',').map((s) => s.trim()),
-            categories: [],
-            platforms: ['web'],
-            targetAudience: [],
-            useCases: [],
-        };
-    }
-    else if (infoChoice.method === 'auto') {
-        console.log(picocolors_1.default.gray('Reading local README.md...'));
+    // 3. Initiate Device Flow OAuth (Verify if already logged in)
+    const { readConfig } = await Promise.resolve().then(() => __importStar(require('./utils/config')));
+    const config = await readConfig();
+    let token = config.accessToken;
+    const APP_BASE = 'https://build-in-live-mvp.vercel.app';
+    if (token) {
+        console.log(picocolors_1.default.gray('Verifying authentication...'));
         try {
-            const fs = await Promise.resolve().then(() => __importStar(require('fs/promises')));
-            const path = await Promise.resolve().then(() => __importStar(require('path')));
-            const readmeContent = await fs.readFile(path.join(cwd, 'README.md'), 'utf-8');
-            projectPayload = { ...projectPayload, readmeText: readmeContent };
-            console.log(picocolors_1.default.green('✔ README loaded successfully.'));
+            const res = await fetch(`${APP_BASE}/api/auth/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const userInfo = await res.json();
+                console.log(picocolors_1.default.green(`✅ Authenticated as ${picocolors_1.default.bold(userInfo.name)} (${userInfo.email})`));
+            }
+            else {
+                console.log(picocolors_1.default.yellow('⚠️  Session expired or invalid. Please log in again.'));
+                token = '';
+            }
         }
         catch (err) {
-            console.log(picocolors_1.default.yellow('⚠️ No README.md found in the root directory. Falling back to empty data.'));
-            projectPayload = { ...projectPayload, readmeText: '' };
+            console.log(picocolors_1.default.yellow('⚠️  Connection error during authentication.'));
+            token = '';
         }
     }
+    if (!token) {
+        token = await (0, deviceFlow_1.loginWithDeviceFlow)();
+    }
+    // 4. Project Info Gathering
+    const { projectUrl, demoVideo } = await (0, prompts_1.default)([
+        {
+            type: 'text',
+            name: 'projectUrl',
+            message: 'Your deployed project URL (e.g. https://myapp.vercel.app):',
+            validate: (v) => v.startsWith('http') ? true : 'Please enter a valid URL starting with http',
+        },
+        {
+            type: 'text',
+            name: 'demoVideo',
+            message: 'Optional: Your product demo video URL (Press Enter to skip):',
+        }
+    ]);
+    let projectPayload = {
+        url: projectUrl,
+        demoVideo: demoVideo
+    };
+    console.log(picocolors_1.default.gray('Reading local README.md for auto-generation...'));
+    try {
+        const fs = await Promise.resolve().then(() => __importStar(require('fs/promises')));
+        const path = await Promise.resolve().then(() => __importStar(require('path')));
+        const readmeContent = await fs.readFile(path.join(cwd, 'README.md'), 'utf-8');
+        projectPayload = { ...projectPayload, readmeText: readmeContent };
+        console.log(picocolors_1.default.green('✔ README loaded successfully. Auto-generating project details via AI...'));
+    }
+    catch (err) {
+        console.log(picocolors_1.default.yellow('⚠️ No README.md found in the root directory. Proceeding with empty data.'));
+        projectPayload = { ...projectPayload, readmeText: '' };
+    }
     // 5. Send data to Build-In-Live Backend
-    const APP_BASE = 'https://build-in-live-mvp.vercel.app';
     let projectId = '';
     let userId = '';
     console.log(picocolors_1.default.cyan('\n📡 Syncing project with Build-In-Live...'));
@@ -161,26 +156,41 @@ program
         console.error(picocolors_1.default.red('❌ Failed to sync project data to backend.'), err);
     }
     // 6. Inject SDK via AST Parsing
-    if (frameworkType !== 'unknown') {
+    if (frameworkType !== 'unknown' && projectId) {
         console.log(picocolors_1.default.cyan('\n📦 Starting SDK Code Injection...'));
-        await (0, injectSDK_1.injectSDK)(cwd, frameworkType);
+        await (0, injectSDK_1.injectSDK)(cwd, frameworkType, projectId);
     }
     else {
         console.log(picocolors_1.default.yellow('\n⚠️  Could not automatically inject the SDK. Please add it manually:'));
-        console.log(picocolors_1.default.yellow('import { LiveFeedbackSDK } from "@build-in-live/sdk";\n// Place inside your root component:\n<LiveFeedbackSDK />'));
+        console.log(picocolors_1.default.yellow('Insert: <script src="https://build-in-live-mvp.vercel.app/sdk.js" data-project-id="' + projectId + '" async></script> before </body>'));
     }
-    // 7. Done — show project links
-    console.log(picocolors_1.default.bold(picocolors_1.default.green('\n✨ All done! Your project is live on Build-In-Live.\n')));
+    // 7. Success Guidance
+    console.log(picocolors_1.default.bold(picocolors_1.default.green('\n✨ Project Successfully Linked to Build-In-Live!')));
+    console.log(picocolors_1.default.white('\n  ──────────────────────────────────────────────────────────────────'));
+    console.log(picocolors_1.default.bold(picocolors_1.default.white('  1. 🚀 DEPLOY YOUR PROJECT')));
+    console.log(picocolors_1.default.gray('     The SDK is now in your code. You MUST deploy your project to'));
+    console.log(picocolors_1.default.gray('     Vercel (or your hosting provider) for changes to take effect.'));
     if (projectId) {
-        const deskUrl = userId
-            ? `${APP_BASE}/desk/${userId}?projectId=${projectId}`
-            : `${APP_BASE}/dashboard`;
+        const verifyUrl = `${APP_BASE}/onboarding?projectId=${projectId}&step=4`;
+        const deskUrl = userId ? `${APP_BASE}/desk/${userId}?projectId=${projectId}` : `${APP_BASE}/dashboard`;
         const feedbackUrl = `${APP_BASE}/feedback/${projectId}`;
-        console.log(picocolors_1.default.white('  📋 Review your project page:'));
-        console.log(picocolors_1.default.cyan(`     ${deskUrl}\n`));
-        console.log(picocolors_1.default.white('  🔗 Share this link to collect feedback:'));
-        console.log(picocolors_1.default.cyan(`     ${feedbackUrl}\n`));
-        console.log(picocolors_1.default.gray('  Open the project page to verify your details and start inviting collaborators.'));
+        console.log(picocolors_1.default.bold(picocolors_1.default.white('\n  2. ✅ VERIFY SDK CONNECTION')));
+        console.log(picocolors_1.default.gray('     Once deployed, visit this link to verify your integration:'));
+        console.log(picocolors_1.default.cyan(`     ${verifyUrl}`));
+        console.log(picocolors_1.default.bold(picocolors_1.default.white('\n  3. 🔗 SHARE & COLLECT FEEDBACK')));
+        console.log(picocolors_1.default.gray('     After verification, share this link with your testers:'));
+        console.log(picocolors_1.default.cyan(`     ${feedbackUrl}`));
+        console.log(picocolors_1.default.white('\n  📋 Manage your project at:'));
+        console.log(picocolors_1.default.cyan(`     ${deskUrl}`));
     }
+    console.log(picocolors_1.default.white('  ──────────────────────────────────────────────────────────────────\n'));
+});
+program
+    .command('logout')
+    .description('Log out from Build-In-Live')
+    .action(async () => {
+    const { writeConfig } = await Promise.resolve().then(() => __importStar(require('./utils/config')));
+    await writeConfig({ accessToken: undefined });
+    console.log(picocolors_1.default.green('✅ Successfully logged out.'));
 });
 program.parse(process.argv);

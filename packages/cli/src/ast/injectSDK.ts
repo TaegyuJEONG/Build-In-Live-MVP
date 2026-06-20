@@ -1,14 +1,11 @@
-import { Project, SyntaxKind } from 'ts-morph';
 import path from 'path';
 import fs from 'fs/promises';
 import pc from 'picocolors';
 import type { FrameworkType } from '../utils/frameworks';
 
-const SDK_PACKAGE_NAME = '@build-in-live/sdk';
-const SDK_COMPONENT_NAME = 'LiveFeedbackSDK';
-
-export async function injectSDK(cwd: string, framework: FrameworkType) {
+export async function injectSDK(cwd: string, framework: FrameworkType, projectId: string) {
   let targetPath = '';
+  const APP_BASE = 'https://build-in-live-mvp.vercel.app';
   
   if (framework === 'nextjs') {
     const possiblePaths = [
@@ -20,8 +17,8 @@ export async function injectSDK(cwd: string, framework: FrameworkType) {
     }
   } else if (framework === 'vitereact') {
     const possiblePaths = [
-      path.join(cwd, 'src', 'main.tsx'),
-      path.join(cwd, 'src', 'main.jsx')
+      path.join(cwd, 'index.html'),
+      path.join(cwd, 'public', 'index.html')
     ];
     for (const p of possiblePaths) {
       try { await fs.access(p); targetPath = p; break; } catch { /* ignore */ }
@@ -29,89 +26,45 @@ export async function injectSDK(cwd: string, framework: FrameworkType) {
   }
 
   if (!targetPath) {
-    console.log(pc.yellow(`⚠️ Could not find standard entry file to inject SDK.`));
+    console.log(pc.yellow(`⚠️ Could not find a suitable file (layout.tsx or index.html) to inject the SDK script.`));
     return false;
   }
 
   console.log(pc.gray(`Found entry file at: ${targetPath}`));
-  console.log(pc.gray(`Mocking SDK installation: npm install ${SDK_PACKAGE_NAME}`));
-  // In real life: execSync(`npm install ${SDK_PACKAGE_NAME}`, { stdio: 'inherit', cwd });
-
-  const project = new Project();
-  const sourceFile = project.addSourceFileAtPath(targetPath);
-
-  // Inject Import Declaration if not exists
-  const hasImport = sourceFile.getImportDeclarations().some(imp => {
-    return imp.getModuleSpecifierValue() === SDK_PACKAGE_NAME;
-  });
-
-  if (!hasImport) {
-    sourceFile.addImportDeclaration({
-      namedImports: [SDK_COMPONENT_NAME],
-      moduleSpecifier: SDK_PACKAGE_NAME,
-    });
-    console.log(pc.green(`✔ Injected import statement for ${SDK_COMPONENT_NAME}`));
-  } else {
-    console.log(pc.gray(`import statement for ${SDK_COMPONENT_NAME} already exists.`));
-  }
-
-  let bodyInjected = false;
-
-  if (framework === 'nextjs') {
-    sourceFile.forEachDescendant(node => {
-      if (node.getKind() === SyntaxKind.JsxElement) {
-        const jsxElement = node.asKind(SyntaxKind.JsxElement);
-        const openingElement = jsxElement?.getOpeningElement();
-        if (openingElement?.getTagNameNode().getText() === 'body') {
-          const textArea = jsxElement!.getText();
-          if (textArea.includes(SDK_COMPONENT_NAME)) {
-            bodyInjected = true;
-            console.log(pc.gray(`<${SDK_COMPONENT_NAME} /> is already injected in <body>.`));
-            return;
-          }
-          const originalBodyText = jsxElement!.getText();
-          const updatedBodyText = originalBodyText.replace(/(<body[^>]*>)/i, `$1\n        <${SDK_COMPONENT_NAME} />`);
-          jsxElement!.replaceWithText(updatedBodyText);
-          bodyInjected = true;
-          console.log(pc.green(`✔ Injected <${SDK_COMPONENT_NAME} /> inside <body> tag.`));
-        }
-      }
-    });
-
-  } else if (framework === 'vitereact') {
-    const codeText = sourceFile.getFullText();
-    if (codeText.includes(`<${SDK_COMPONENT_NAME} />`)) {
-       bodyInjected = true;
-       console.log(pc.gray(`<${SDK_COMPONENT_NAME} /> is already injected.`));
-    } else {
-       sourceFile.forEachDescendant(node => {
-         if (node.getKind() === SyntaxKind.CallExpression) {
-            const callExpr = node.asKind(SyntaxKind.CallExpression);
-            const callText = callExpr?.getExpression().getText();
-            if (callText && callText.endsWith('.render')) {
-               const args = callExpr?.getArguments();
-               if (args && args.length > 0) {
-                 const rootJsx = args[0];
-                 if (rootJsx.getKind() === SyntaxKind.JsxElement || rootJsx.getKind() === SyntaxKind.JsxSelfClosingElement || rootJsx.getKind() === SyntaxKind.JsxFragment) {
-                   const originalJsxText = rootJsx.getText();
-                   const newJsxText = `<>\n    <${SDK_COMPONENT_NAME} />\n    ${originalJsxText}\n  </>`;
-                   rootJsx.replaceWithText(newJsxText);
-                   bodyInjected = true;
-                   console.log(pc.green(`✔ Injected <${SDK_COMPONENT_NAME} /> into ReactDOM.render tree.`));
-                 }
-               }
-            }
-         }
-       });
+  
+  try {
+    const content = await fs.readFile(targetPath, 'utf-8');
+    
+    if (content.includes('build-in-live-mvp.vercel.app/sdk.js')) {
+      console.log(pc.gray(`Build-In-Live SDK script is already injected.`));
+      return true;
     }
-  }
 
-  if (!bodyInjected) {
-    console.log(pc.yellow(`⚠️ Could not automatically find injection point. Please add <${SDK_COMPONENT_NAME} /> manually.`));
-  } else {
-    await sourceFile.save();
-    console.log(pc.green(`✅ File updated successfully!`));
-  }
+    let updatedContent = '';
+    if (targetPath.endsWith('.tsx') || targetPath.endsWith('.js')) {
+      // JSX requires proper closing and no HTML comments
+      const sdkScriptJsx = `\n                {/* Build-In-Live SDK */}\n                <script src="${APP_BASE}/sdk.js" data-project-id="${projectId}" async></script>\n`;
+      if (content.includes('</body>')) {
+        updatedContent = content.replace('</body>', `${sdkScriptJsx}            </body>`);
+      } else {
+        updatedContent = content + sdkScriptJsx;
+      }
+    } else {
+      // HTML case (Vite)
+      const sdkScriptHtml = `\n    <!-- Build-In-Live SDK -->\n    <script src="${APP_BASE}/sdk.js" data-project-id="${projectId}" async></script>\n`;
+      if (content.includes('</body>')) {
+        updatedContent = content.replace('</body>', `${sdkScriptHtml}</body>`);
+      } else {
+        updatedContent = content + sdkScriptHtml;
+      }
+    }
 
-  return true;
+    await fs.writeFile(targetPath, updatedContent, 'utf-8');
+    console.log(pc.green(`✅ Build-In-Live SDK script successfully injected into ${path.basename(targetPath)}!`));
+    return true;
+  } catch (err) {
+    console.error(pc.red(`❌ Failed to inject SDK script:`), err);
+    return false;
+  }
 }
+

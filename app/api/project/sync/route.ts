@@ -44,10 +44,34 @@ export async function POST(req: Request) {
     }
 
     // 3. Save to Firestore
+    const projectUrl = body.url || '';
+    let logoUrl = body.logo || body.logoUrl || processedData.logoUrl || '';
+
+    // Fallback to favicon if no logo is provided or extracted
+    if (!logoUrl && projectUrl) {
+      try {
+        const hostname = new URL(projectUrl).hostname;
+        logoUrl = `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`;
+      } catch (e) {
+        // invalid URL, keep logoUrl empty
+      }
+    }
+
+    // Generate a screenshot using Microlink
+    let screenshots = body.screenshots || [];
+    if (projectUrl) {
+      const screenshotUrl = `https://api.microlink.io?url=${encodeURIComponent(projectUrl)}&screenshot=true&meta=false&embed=screenshot.url`;
+      screenshots = [screenshotUrl, ...screenshots];
+    }
+
     const payloadToSave = {
       ...processedData,
       name: body.name || processedData.name || 'Untitled Project',
-      url: body.url || '',
+      url: projectUrl,
+      demoVideo: body.demoVideo || '',
+      logo: logoUrl,
+      logoUrl: logoUrl,
+      screenshots: screenshots,
       ownerId: userId,
       feedbackCount: 0,
       isVerified: false,

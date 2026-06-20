@@ -1156,12 +1156,11 @@ export default function UserDeskPage() {
 
                   if (editingProject) {
                     await updateProject(editingProject.id, projectData as any);
+                    handleCloseModal();
                   } else {
                     const nId = await addProject(projectData as any);
-                    if (nId) setSelectedProjectId(nId);
+                    if (nId) router.push(`/onboarding?projectId=${nId}&step=3`);
                   }
-                  
-                  handleCloseModal();
                 } catch (err) {
                   console.error(err);
                 } finally {
